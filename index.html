@@ -39,6 +39,29 @@
        background:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;color:oklch(38% 0.012 250)}
   .chip .dot{width:8px;height:8px;border-radius:50%}
   .chip[aria-pressed=true]{background:oklch(24% 0.012 250);border-color:oklch(24% 0.012 250);color:#fff}
+  .calc{padding:14px 22px;border-bottom:1px solid oklch(92% 0.006 250);background:oklch(98.6% 0.004 250)}
+  .calc summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+       font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:oklch(45% 0.02 250)}
+  .calc summary::-webkit-details-marker{display:none}
+  .calc summary span.mark{font-size:14px;line-height:1;color:oklch(60% 0.02 250)}
+  .calc[open] summary span.mark{transform:rotate(45deg)}
+  .calc .body{display:flex;flex-direction:column;gap:10px;padding-top:12px}
+  .pick{display:grid;grid-template-columns:16px 1fr;gap:8px;align-items:center}
+  .pick i{width:9px;height:9px;border-radius:50%;display:block;margin-left:3px}
+  .modes{display:flex;gap:6px;flex-wrap:wrap}
+  .res{border-top:1px dashed oklch(88% 0.008 250);padding-top:10px;display:flex;flex-direction:column;gap:7px}
+  .res .row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:12.5px}
+  .res .row b{font-family:"IBM Plex Mono",monospace;font-weight:500;font-size:13px}
+  .res .row.head{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:oklch(55% 0.02 250)}
+  .res .note{font-size:10.5px;color:oklch(58% 0.015 250);line-height:1.5}
+  .mini{display:flex;gap:6px}
+  .mini button{flex:1;font-family:inherit;font-size:11.5px;padding:6px;border:1px solid oklch(88% 0.008 250);
+       background:#fff;border-radius:6px;cursor:pointer;color:oklch(40% 0.015 250)}
+  .mini button:hover{border-color:oklch(52% 0.17 22);color:oklch(45% 0.17 22)}
+  .pop .pbtns{display:flex;gap:6px;margin-top:8px}
+  .pop .pbtns button{font-family:inherit;font-size:11px;padding:5px 9px;border:1px solid oklch(86% 0.008 250);
+       background:#fff;border-radius:5px;cursor:pointer}
+  .pop .pbtns button:hover{background:oklch(96% 0.01 250)}
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:oklch(92% 0.006 250);border-bottom:1px solid oklch(92% 0.006 250)}
   .stat{background:#fff;padding:11px 12px}
   .stat b{display:block;font-size:19px;font-weight:600;letter-spacing:-.02em;font-family:"IBM Plex Mono",monospace}
@@ -101,6 +124,26 @@
       <div class="chips" id="chips"></div>
     </div>
   </div>
+  <details class="calc" id="calc">
+    <summary>Cálculo de distancia y tiempo <span class="mark">+</span></summary>
+    <div class="body">
+      <div class="pick"><i style="background:oklch(52% 0.17 22)"></i><select id="oSel"></select></div>
+      <div class="pick"><i style="background:oklch(45% 0.11 250)"></i><select id="dSel"></select></div>
+      <div class="mini">
+        <button id="swap">Invertir</button>
+        <button id="clr">Limpiar</button>
+      </div>
+      <div>
+        <label class="lab">Vía (terrestre por defecto)</label>
+        <div class="modes" id="modes">
+          <button class="chip" data-m="ter" aria-pressed="true">Terrestre</button>
+          <button class="chip" data-m="flu" aria-pressed="false">Fluvial</button>
+          <button class="chip" data-m="aer" aria-pressed="false">Aérea</button>
+        </div>
+      </div>
+      <div class="res" id="res"><div class="note">Selecciona dos establecimientos —desde estas listas o con los botones «Origen» / «Destino» del globo en el mapa— para estimar distancia y tiempo de traslado.</div></div>
+    </div>
+  </details>
   <div class="stats">
     <div class="stat"><b id="s1">0</b><span>IPRESS</span></div>
     <div class="stat"><b id="s2">0</b><span>Tipo I</span></div>
@@ -137,6 +180,7 @@ Object.values(groups).forEach(g => g.forEach((b,i) => {
   b.lat += Math.sin(a) * r; b.lng += Math.cos(a) * r * 1.03;
 }));
 
+RAW.forEach((b, i) => b.id = i);
 const REGIONS = [...new Set(RAW.map(b => b.reg))].sort();
 const state = { reg: 'ALL', q: '', grupo: 'ALL', tipos: new Set(['IA','IB','IC','II']) };
 
@@ -177,7 +221,9 @@ function popup(b) {
   return '<div class="pop"><h4>' + b.name + '</h4>' +
     '<div class="t" style="color:' + COLOR[b.tipo] + '">' + LABEL[b.tipo] + '</div>' +
     '<table>' + rows.filter(r => r[1]).map(r => '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>').join('') + '</table>' +
-    (b.susp ? '<div class="warn">⚠ Registro con observación de suspensión en la fuente.</div>' : '') + '</div>';
+    (b.susp ? '<div class="warn">⚠ Registro con observación de suspensión en la fuente.</div>' : '') +
+    '<div class="pbtns"><button data-set="o" data-id="'+b.id+'">Origen</button>' +
+    '<button data-set="d" data-id="'+b.id+'">Destino</button></div></div>';
 }
 
 const markers = new Map();
@@ -240,6 +286,99 @@ chips.addEventListener('click', e => {
   render(false);
 });
 buildReg(); buildChips(); render(false);
+
+/* ---------- distancia y tiempo ---------- */
+const MODES = {
+  ter: { label:'Terrestre', factor:1.32, note:'factor de sinuosidad vial 1,32' },
+  flu: { label:'Fluvial',   factor:1.45, note:'factor de meandros 1,45 · 22 km/h' },
+  aer: { label:'Aérea',     factor:1.00, note:'línea recta · 500 km/h + 1 h de operación' }
+};
+const route = { o: null, d: null, modes: new Set(['ter']) };
+let routeLine = null, routeMarks = L.layerGroup().addTo(map);
+
+const oSel = document.getElementById('oSel'), dSel = document.getElementById('dSel');
+const opts = '<option value="">— seleccionar establecimiento —</option>' +
+  [...RAW].sort((a,b) => (a.reg+a.name).localeCompare(b.reg+b.name, 'es'))
+    .map(b => '<option value="'+b.id+'">'+b.reg+' · '+LABEL[b.tipo]+' · '+b.name.slice(0,58)+'</option>').join('');
+oSel.innerHTML = opts; dSel.innerHTML = opts;
+
+function haversine(a, b) {
+  const R = 6371, rad = Math.PI/180;
+  const dLat = (b.lat-a.lat)*rad, dLon = (b.lng-a.lng)*rad;
+  const s = Math.sin(dLat/2)**2 + Math.cos(a.lat*rad)*Math.cos(b.lat*rad)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+function speedTer(km, a, b) {
+  if (a.dist === b.dist && a.prov === b.prov) return 22;   // urbano intradistrital
+  if (a.prov === b.prov) return 32;                         // urbano-periurbano
+  if (a.reg === b.reg) return 48;                           // interprovincial
+  return km > 400 ? 62 : 55;                                // interregional
+}
+function hm(hours) {
+  const t = Math.round(hours*60);
+  if (t < 60) return t + ' min';
+  return Math.floor(t/60) + ' h ' + String(t%60).padStart(2,'0') + ' min';
+}
+function drawRoute() {
+  if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+  routeMarks.clearLayers();
+  if (!route.o || !route.d) return;
+  const pts = [[route.o.lat, route.o.lng], [route.d.lat, route.d.lng]];
+  routeLine = L.polyline(pts, { color:'oklch(45% 0.11 250)', weight:2.5, dashArray:'7 6', opacity:.9 }).addTo(map);
+  [['o', route.o, 'oklch(52% 0.17 22)'], ['d', route.d, 'oklch(45% 0.11 250)']].forEach(([k, b, c]) =>
+    routeMarks.addLayer(L.circleMarker([b.lat, b.lng], { radius:11, color:c, weight:3, fill:false })));
+  map.fitBounds(L.latLngBounds(pts).pad(0.3), { maxZoom: 12 });
+}
+function calc() {
+  const box = document.getElementById('res');
+  if (!route.o || !route.d) {
+    box.innerHTML = '<div class="note">Selecciona dos establecimientos —desde estas listas o con los botones «Origen» / «Destino» del globo en el mapa— para estimar distancia y tiempo de traslado.</div>';
+    drawRoute(); return;
+  }
+  if (route.o.id === route.d.id) {
+    box.innerHTML = '<div class="note">Origen y destino son el mismo establecimiento.</div>';
+    drawRoute(); return;
+  }
+  const gc = haversine(route.o, route.d);
+  const order = ['ter','flu','aer'].filter(m => route.modes.has(m));
+  let out = '<div class="row head"><span>' + route.o.name.slice(0,26) + ' → ' + route.d.name.slice(0,26) + '</span></div>' +
+            '<div class="row"><span>Distancia en línea recta</span><b>' + gc.toFixed(1) + ' km</b></div>';
+  order.forEach(m => {
+    const km = gc * MODES[m].factor;
+    const v = m === 'ter' ? speedTer(km, route.o, route.d) : m === 'flu' ? 22 : 500;
+    const h = km / v + (m === 'aer' ? 1 : 0);
+    out += '<div class="row"><span>' + MODES[m].label + ' · ' + km.toFixed(1) + ' km · ' + v + ' km/h</span><b>' + hm(h) + '</b></div>';
+  });
+  out += '<div class="note">Estimación referencial: distancia geodésica ajustada por vía (' +
+    order.map(m => MODES[m].note).join(' · ') + '). No sustituye una ruta real de carretera ni un plan de vuelo.</div>';
+  box.innerHTML = out;
+  drawRoute();
+}
+function setPoint(which, id) {
+  const b = id === '' || id == null ? null : RAW[+id];
+  route[which] = b;
+  (which === 'o' ? oSel : dSel).value = b ? String(b.id) : '';
+  document.getElementById('calc').open = true;
+  calc();
+}
+oSel.addEventListener('change', e => setPoint('o', e.target.value));
+dSel.addEventListener('change', e => setPoint('d', e.target.value));
+document.getElementById('swap').addEventListener('click', () => {
+  const a = route.o, b = route.d; route.o = b; route.d = a;
+  oSel.value = b ? String(b.id) : ''; dSel.value = a ? String(a.id) : ''; calc();
+});
+document.getElementById('clr').addEventListener('click', () => { setPoint('o', ''); setPoint('d', ''); });
+document.getElementById('modes').addEventListener('click', e => {
+  const btn = e.target.closest('.chip'); if (!btn) return;
+  const m = btn.dataset.m;
+  if (route.modes.has(m)) { if (route.modes.size === 1) return; route.modes.delete(m); } else route.modes.add(m);
+  btn.setAttribute('aria-pressed', route.modes.has(m));
+  calc();
+});
+document.getElementById('map').addEventListener('click', e => {
+  const btn = e.target.closest('.pbtns button'); if (!btn) return;
+  setPoint(btn.dataset.set === 'o' ? 'o' : 'd', btn.dataset.id);
+});
 </script>
 </body>
 </html>
