@@ -18,19 +18,24 @@ El panel *"Cálculo de distancia y tiempo"* estima el traslado entre dos estable
 por tres vías, e indica cuál es viable:
 
 - **Terrestre:** ruta real de carretera (distancia y tiempo de manejo) consultada en vivo a
-  [OSRM](https://project-osrm.org/) sobre OpenStreetMap; la traza se dibuja en el mapa. Si no
-  existe una ruta de carretera practicable (p. ej. Iquitos), se marca *"no viable"*. Requiere
-  conexión a internet; los resultados se guardan en caché en el navegador.
+  [OSRM](https://project-osrm.org/) sobre OpenStreetMap; la traza se dibuja en el mapa. El
+  tiempo de OSRM se **corrige por altitud** del trayecto (perfil de elevación de
+  [open-meteo](https://open-meteo.com/): factor ×1,12 costa … ×1,5 sierra alta sostenida) más
+  un margen por paradas, y por un **selector de tipo de traslado** (auto particular ·
+  camioneta / vía afirmada ×1,25 · ambulancia con prioridad ×0,85). Si no existe ruta de
+  carretera practicable (p. ej. Iquitos), se marca *"no viable"*.
 - **Fluvial:** red curada de puertos y rutas comerciales amazónicas (Yurimaguas, Iquitos,
-  Nauta, Requena, Contamana, Pucallpa, Atalaya, Caballococha, Santa Rosa, etc.). Se calcula la
-  ruta puerto a puerto y el tiempo por *lancha* y por *deslizador/rápido*. **Cifras
+  Nauta, Requena, Contamana, Pucallpa, Atalaya, Caballococha, Santa Rosa, etc.). Ruta puerto a
+  puerto con **sentido de la corriente** (aguas abajo ×0,72 · aguas arriba ×1,45) y tiempo por
+  *lancha* y por *deslizador/rápido*, más el traslado en tierra a cada puerto. **Cifras
   referenciales**, pendientes de validación con la Autoridad Portuaria Nacional / MTC.
-- **Aéreo:** aeropuerto con servicio comercial más cercano a cada extremo, distancia
-  ortodrómica entre aeropuertos (con escala en Lima cuando no hay conexión directa habitual)
-  y tiempo de vuelo estimado.
+- **Aéreo:** aeropuerto con servicio comercial más cercano a cada extremo; vuelo **directo**
+  si es una ruta habitual conocida, si no con escala en Lima. Tiempo *puerta a puerta*:
+  traslado en tierra al aeropuerto (OSRM) + presentación + *block time* (crucero según
+  distancia + maniobras) + escala + traslado al destino.
 
-Datos de apoyo embebidos en `index.html`: `#ports` y `#river` (red fluvial), `#airports`
-(aeropuertos del Perú).
+Datos de apoyo embebidos en `index.html`: `#ports` y `#river` (red fluvial con orden
+hidrográfico), `#airports` (aeropuertos del Perú).
 
 ## Detalles técnicos
 
@@ -38,8 +43,10 @@ Datos de apoyo embebidos en `index.html`: `#ports` y `#river` (red fluvial), `#a
   bancos de sangre van embebidos en la propia página.
 - Usa [Leaflet](https://leafletjs.com/) para el mapa y teselas de OpenStreetMap.
 - El cálculo de rutas terrestres llama a `https://router.project-osrm.org` (servidor
-  público de demostración de OSRM). Para uso intensivo conviene migrar a un OSRM propio o a
-  una llave de OpenRouteService.
+  público de demostración de OSRM) y a `https://api.open-meteo.com` (perfil de altitud).
+  Cada cálculo hace 1–5 consultas a OSRM (ruta principal + traslados a puerto/aeropuerto),
+  con caché en el navegador. Para uso intensivo conviene migrar a un OSRM propio o a una
+  llave de OpenRouteService.
 - No requiere servidor ni proceso de compilación: es una página estática publicada con
   GitHub Pages.
 

@@ -194,6 +194,14 @@
           <button class="chip" data-m="aer" aria-pressed="true">Aérea</button>
         </div>
       </div>
+      <div>
+        <label class="lab">Traslado terrestre</label>
+        <div class="modes" id="veh">
+          <button class="chip" data-veh="auto" aria-pressed="true">Auto</button>
+          <button class="chip" data-veh="camioneta" aria-pressed="false">Camioneta / afirmado</button>
+          <button class="chip" data-veh="ambulancia" aria-pressed="false">Ambulancia</button>
+        </div>
+      </div>
       <div class="res" id="res"><div class="note">Selecciona dos establecimientos —desde estas listas o con los botones «Origen» / «Destino» del globo en el mapa— para estimar distancia y tiempo por vía terrestre (ruta real de carretera), fluvial y aérea.</div></div>
     </div>
   </details>
@@ -441,17 +449,28 @@ paintList();
 
 /* ---------- distancia y tiempo: terrestre real (OSRM) + fluvial curado + aéreo ---------- */
 const OSRM = 'https://router.project-osrm.org/route/v1/driving/';
+const ELEV = 'https://api.open-meteo.com/v1/elevation';
 const PORTS = JSON.parse(document.getElementById('ports').textContent);
 const RIVER = JSON.parse(document.getElementById('river').textContent);
 const AIRP  = JSON.parse(document.getElementById('airports').textContent);
-const LANCHA_KMH = 13, RAPIDO_KMH = 33, AIR_KMH = 500, AIR_SEG_OH = 0.5, HUB_LAYOVER = 1.5;
+const LANCHA_KMH = 13, RAPIDO_KMH = 33;
+const AIR_CHECKIN = 0.75, AIR_LAYOVER = 1.5, AIR_SEG_OH = 0.35;
+
+// orden hidrográfico aproximado de los puertos (mayor = más aguas abajo)
+const FLOW = { SAR:10, YUR:14, SLO:20, ATA:5, SEP:6, PCL:16, ORE:22, CON:28, REQ:34,
+               NAU:40, IQT:50, EST:52, PAN:55, ANG:58, CAB:60, SRO:70, BMA:20, PMD:30 };
+// pares de aeropuertos con vuelo directo habitual sin pasar por Lima
+const AIR_DIRECT = new Set(['AQP|CUZ','CUZ|PEM','CUZ|JUL','AQP|JUL','AQP|TCQ','IQT|TPP','PCL|TPP','CIX|TPP','JUL|PEM']);
+const VEH = { auto:{ m:1.00, label:'auto particular' },
+              camioneta:{ m:1.25, label:'camioneta / vía afirmada' },
+              ambulancia:{ m:0.85, label:'ambulancia con prioridad' } };
 
 const PORT = {}; PORTS.forEach(p => { PORT[p.id] = p; });
 const RG = {};
 PORTS.forEach(p => { RG[p.id] = []; });
 RIVER.forEach(e => { RG[e[0]].push([e[1], e[2], e[3], e[4]]); RG[e[1]].push([e[0], e[2], e[3], e[4]]); });
 
-const route = { o: null, d: null, modes: new Set(['ter','flu','aer']), geo: {} };
+const route = { o: null, d: null, modes: new Set(['ter','flu','aer']), veh: 'auto', geo: {} };
 let routeLayers = L.layerGroup().addTo(map);
 
 const oSel = document.getElementById('oSel'), dSel = document.getElementById('dSel');
@@ -481,12 +500,14 @@ function nearest(list, pt, maxKm) {
 }
 
 /* ---- terrestre: ruta real de OSRM sobre OpenStreetMap, con caché en el navegador ---- */
-const LS_KEY = 'geobs_road_v2';
+const LS_KEY = 'geobs_road_v4';
 let RCACHE = {};
 try { RCACHE = JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch (e) {}
 function cacheSave() { try { localStorage.setItem(LS_KEY, JSON.stringify(RCACHE)); } catch (e) {} }
-async function roadRoute(o, d, gc) {
-  const key = o.id + '_' + d.id;
+function rkey(a, b) { return [a.lng, a.lat, b.lng, b.lat].map(n => Number(n).toFixed(4)).join(','); }
+async function roadRoute(o, d) {
+  const gc = haversine(o, d);
+  const key = rkey(o, d);
   if (RCACHE[key]) return RCACHE[key];
   let out;
   try {
@@ -505,9 +526,52 @@ async function roadRoute(o, d, gc) {
     return { ok:false, code:'neterr' };
   }
   const keys = Object.keys(RCACHE);
-  if (keys.length > 80) delete RCACHE[keys[0]];
+  if (keys.length > 120) delete RCACHE[keys[0]];
   RCACHE[key] = out; cacheSave();
   return out;
+}
+async function legDrive(a, b) {
+  const r = await roadRoute(a, b);
+  return (r.ok && !r.suspect) ? { km:r.dist, h:r.dur } : null;
+}
+
+/* ---- perfil de altitud del trayecto (open-meteo) para corregir el tiempo en sierra ---- */
+async function elevProfile(o, d) {
+  const key = 'E:' + rkey(o, d);
+  if (RCACHE[key]) return RCACHE[key];
+  const rr = RCACHE[rkey(o, d)];
+  const path = (rr && rr.ok && rr.coords) ? rr.coords : [[o.lat,o.lng],[d.lat,d.lng]];
+  const n = Math.min(90, Math.max(8, Math.round(path.length / 12)));
+  const step = (path.length - 1) / (n - 1);
+  const lats = [], lngs = [];
+  for (let i = 0; i < n; i++) { const p = path[Math.round(i*step)]; lats.push(p[0].toFixed(4)); lngs.push(p[1].toFixed(4)); }
+  let out;
+  try {
+    const j = await (await fetch(ELEV + '?latitude=' + lats.join(',') + '&longitude=' + lngs.join(','))).json();
+    const e = j.elevation || [];
+    if (!e.length) throw 0;
+    let mx = 0, gain = 0, hi = 0;
+    for (let i = 0; i < e.length; i++) {
+      if (e[i] > mx) mx = e[i];
+      if (e[i] >= 1500) hi++;
+      if (i && e[i] > e[i-1]) gain += e[i] - e[i-1];
+    }
+    out = { ok:true, maxEle:Math.round(mx), gain:Math.round(gain), hi:hi / e.length };
+  } catch (e) { out = { ok:false }; }
+  RCACHE[key] = out; cacheSave();
+  return out;
+}
+function terrainFactor(elev, avgSpeed, dist) {
+  if (elev && elev.ok) {
+    const hi = elev.hi || 0;
+    if (elev.maxEle >= 3000 && hi >= 0.25) return { f:1.5, label:'sierra alta sostenida' };
+    if (elev.maxEle >= 3000) return { f:1.35, label:'paso de altura' };
+    if (hi >= 0.35) return { f:1.3, label:'sierra / ceja de selva' };
+    if (elev.maxEle >= 1500) return { f:1.18, label:'tramos de altura' };
+    if (avgSpeed < 45 && dist > 80) return { f:1.35, label:'selva / vía afirmada' };
+    return { f:1.12, label:'costa / llano' };
+  }
+  return { f:1.18, label:'terreno no evaluado' };
 }
 
 /* ---- fluvial: Dijkstra (horas de lancha) sobre la red curada de puertos ---- */
@@ -537,35 +601,43 @@ function fluvialRoute(o, d) {
   if (op.node.id === dp.node.id) return { ok:false, reason:'ambos extremos usan el mismo puerto' };
   const legs = riverPath(op.node.id, dp.node.id);
   if (!legs) return { ok:false, reason:'sin ruta fluvial continua entre las cuencas' };
-  let km = 0, lh = 0, rh = 0, hasRapido = true;
+  let km = 0, lh = 0, rh = 0, hasRapido = true, down = 0, up = 0;
   const via = [op.node.name];
   for (const lg of legs) {
+    let dir = 1.0;
+    const fr = FLOW[lg.from], to = FLOW[lg.to];
+    if (fr != null && to != null) {
+      if (to > fr) { dir = 0.72; down++; } else if (to < fr) { dir = 1.45; up++; }
+    }
     km += lg.km;
-    lh += (lg.lh != null ? lg.lh : lg.km / LANCHA_KMH);
-    if (lg.rh != null) rh += lg.rh; else hasRapido = false;
+    lh += (lg.lh != null ? lg.lh : lg.km / LANCHA_KMH) * dir;
+    if (lg.rh != null) rh += lg.rh * dir; else hasRapido = false;
     via.push(PORT[lg.to].name);
   }
+  const sense = down > up ? 'aguas abajo' : up > down ? 'aguas arriba' : 'sentido mixto';
   const coords = [[o.lat,o.lng], [op.node.lat,op.node.lng]]
     .concat(legs.map(l => [PORT[l.to].lat, PORT[l.to].lng]));
   coords.push([d.lat, d.lng]);
-  return { ok:true, op, dp, km, lh, rh: hasRapido ? rh : null, landO: op.km, landD: dp.km, via, coords };
+  return { ok:true, op, dp, km, lh, rh: hasRapido ? rh : null, sense, via, coords };
 }
 
-/* ---- aéreo: aeropuerto más cercano en cada extremo; escala en Lima si ninguno es LIM ---- */
+/* ---- aéreo: aeropuerto más cercano; directo si hay ruta habitual, si no escala en Lima ---- */
+function cruiseKmh(g) { return g < 350 ? 430 : g < 800 ? 610 : 720; }
 function airRoute(o, d) {
   const oa = nearest(AIRP, o, 400), da = nearest(AIRP, d, 400);
   if (!oa || !da) return { ok:false, reason:'sin aeropuerto a ≤400 km de algún extremo' };
   if (oa.node.id === da.node.id) return { ok:false, reason:'ambos extremos usan el mismo aeropuerto' };
   const LIMA = AIRP.find(a => a.id === 'LIM');
-  const segs = (oa.node.id === 'LIM' || da.node.id === 'LIM')
-    ? [[oa.node, da.node]] : [[oa.node, LIMA], [LIMA, da.node]];
-  let gc = 0, ft = 0;
-  for (const s of segs) { const g = haversine(s[0], s[1]); gc += g; ft += g / AIR_KMH + AIR_SEG_OH; }
-  if (segs.length > 1) ft += HUB_LAYOVER;
+  const pair = [oa.node.id, da.node.id].sort().join('|');
+  const direct = oa.node.id === 'LIM' || da.node.id === 'LIM' || AIR_DIRECT.has(pair);
+  const segs = direct ? [[oa.node, da.node]] : [[oa.node, LIMA], [LIMA, da.node]];
+  let gc = 0, block = 0;
+  for (const s of segs) { const g = haversine(s[0], s[1]); gc += g; block += AIR_SEG_OH + g / cruiseKmh(g); }
+  const layover = segs.length > 1 ? AIR_LAYOVER : 0;
   const coords = [[o.lat,o.lng], [oa.node.lat,oa.node.lng]];
   if (segs.length > 1) coords.push([LIMA.lat, LIMA.lng]);
   coords.push([da.node.lat, da.node.lng], [d.lat, d.lng]);
-  return { ok:true, oa, da, gc, ft, viaLima: segs.length > 1, landO: oa.km, landD: da.km, coords };
+  return { ok:true, oa, da, gc, block, layover, viaLima: segs.length > 1, coords };
 }
 
 /* ---- dibujo de las rutas activas ---- */
@@ -603,12 +675,21 @@ async function calc() {
   const o = route.o, d = route.d, gc = haversine(o, d);
   const head = '<div class="row head"><span>' + o.name.slice(0,26) + ' → ' + d.name.slice(0,26) + '</span></div>' +
                '<div class="row"><span>Distancia en línea recta</span><b>' + gc.toFixed(1) + ' km</b></div>';
-  box.innerHTML = head + '<div class="note">' + (route.modes.has('ter') ? 'Consultando ruta de carretera…' : 'Calculando…') + '</div>';
+  box.innerHTML = head + '<div class="note">Calculando rutas y tiempos…</div>';
 
-  const road = route.modes.has('ter') ? await roadRoute(o, d, gc) : null;
+  const road = route.modes.has('ter') ? await roadRoute(o, d) : null;
   if (seq !== calcSeq) return;
   const flu = route.modes.has('flu') ? fluvialRoute(o, d) : null;
   const air = route.modes.has('aer') ? airRoute(o, d) : null;
+
+  const [elev, fLegO, fLegD, aLegO, aLegD] = await Promise.all([
+    (road && road.ok && !road.suspect) ? elevProfile(o, d) : Promise.resolve(null),
+    (flu && flu.ok && flu.op.km > 8) ? legDrive(o, flu.op.node) : Promise.resolve(null),
+    (flu && flu.ok && flu.dp.km > 8) ? legDrive(flu.dp.node, d) : Promise.resolve(null),
+    (air && air.ok && air.oa.km > 8) ? legDrive(o, air.oa.node) : Promise.resolve(null),
+    (air && air.ok && air.da.km > 8) ? legDrive(air.da.node, d) : Promise.resolve(null)
+  ]);
+  if (seq !== calcSeq) return;
 
   let terrestre = null;   // true = viable, false = no viable, null = no evaluado / sin dato
   let out = head;
@@ -617,7 +698,14 @@ async function calc() {
     if (road.ok && !road.suspect) {
       terrestre = true;
       route.geo.ter = road.coords;
-      out += '<div class="row"><span>Terrestre · carretera (OSRM/OpenStreetMap) · ' + road.dist.toFixed(0) + ' km</span><b>' + hm(road.dur) + '</b></div>';
+      const trn = terrainFactor(elev, road.dist / road.dur, road.dist);
+      const stops = 0.2 + 0.12 * Math.floor(road.dist / 150);
+      const veh = VEH[route.veh] || VEH.auto;
+      const durAdj = (road.dur * trn.f + stops) * veh.m;
+      out += '<div class="row"><span>Terrestre · carretera · ' + road.dist.toFixed(0) + ' km · ' + veh.label + '</span><b>' + hm(durAdj) + '</b></div>' +
+             '<div class="note">Base OSRM ' + hm(road.dur) + ' · terreno ×' + trn.f.toFixed(2) + ' (' + trn.label +
+             (elev && elev.ok ? ', cota máx ' + elev.maxEle + ' m' : '') + ') · paradas +' + hm(stops) +
+             (veh.m !== 1 ? ' · ' + veh.label + ' ×' + veh.m.toFixed(2) : '') + '.</div>';
     } else if (road.ok && road.suspect) {
       terrestre = false;
       out += '<div class="row"><span>Terrestre</span><b>no viable</b></div>' +
@@ -636,11 +724,14 @@ async function calc() {
   if (flu) {
     if (flu.ok) {
       route.geo.flu = flu.coords;
-      const tiempo = flu.rh != null
-        ? hm(flu.rh) + ' (rápido) · ' + hm(flu.lh) + ' (lancha)'
-        : hm(flu.lh) + ' (lancha; sin servicio rápido regular)';
-      out += '<div class="row"><span>Fluvial · ' + flu.km.toFixed(0) + ' km de río · ' + flu.via.join(' → ') + '</span><b>' + tiempo + '</b></div>' +
-             '<div class="note">Embarque en ' + flu.op.node.name + ' (≈ ' + flu.landO.toFixed(0) + ' km del origen) y desembarque en ' + flu.dp.node.name + ' (≈ ' + flu.landD.toFixed(0) + ' km del destino). Tiempos referenciales de rutas comerciales; varían con la creciente/vaciante y el sentido de la corriente.</div>';
+      const legH = (fLegO ? fLegO.h : flu.op.km / 35) + (fLegD ? fLegD.h : flu.dp.km / 35);
+      const legNote = 'traslado a puertos ' +
+        (fLegO ? fLegO.km.toFixed(0) + ' km' : '≈ ' + flu.op.km.toFixed(0) + ' km') + ' + ' +
+        (fLegD ? fLegD.km.toFixed(0) + ' km' : '≈ ' + flu.dp.km.toFixed(0) + ' km') + ' (' + hm(legH) + ')';
+      const tRap = flu.rh != null ? hm(flu.rh + legH) + ' (rápido)' : null;
+      const tLan = hm(flu.lh + legH) + ' (lancha)' + (flu.rh == null ? '; sin rápido regular' : '');
+      out += '<div class="row"><span>Fluvial · ' + flu.km.toFixed(0) + ' km de río · ' + flu.sense + ' · ' + flu.via.join(' → ') + '</span><b>' + (tRap ? tRap + ' · ' + tLan : tLan) + '</b></div>' +
+             '<div class="note">Embarque en ' + flu.op.node.name + ', desembarque en ' + flu.dp.node.name + '. ' + legNote + '. Navegación ' + flu.sense + '; los tiempos varían con la creciente/vaciante. Cifras referenciales (APN/MTC).</div>';
     } else {
       out += '<div class="row"><span>Fluvial</span><b>no determinada</b></div>' +
              '<div class="note">' + flu.reason + '.</div>';
@@ -650,8 +741,11 @@ async function calc() {
   if (air) {
     if (air.ok) {
       route.geo.aer = air.coords;
-      out += '<div class="row"><span>Aérea · ' + air.oa.node.id + ' → ' + (air.viaLima ? 'LIM → ' : '') + air.da.node.id + ' · ' + air.gc.toFixed(0) + ' km de vuelo</span><b>' + hm(air.ft) + '</b></div>' +
-             '<div class="note">Aeropuertos: ' + air.oa.node.city + ' (' + air.oa.node.id + ', ≈ ' + air.landO.toFixed(0) + ' km del origen) y ' + air.da.node.city + ' (' + air.da.node.id + ', ≈ ' + air.landD.toFixed(0) + ' km del destino)' + (air.viaLima ? ', con escala en Lima (la mayoría de rutas domésticas conectan por LIM)' : '') + '. Vuelo estimado a 500 km/h + 30 min de maniobra por tramo' + (air.viaLima ? ' + 1 h 30 de escala' : '') + '; no incluye espera previa en aeropuerto ni traslados en tierra.</div>';
+      const gO = aLegO ? aLegO.h : air.oa.km / 35;
+      const gD = aLegD ? aLegD.h : air.da.km / 35;
+      const total = gO + AIR_CHECKIN + air.block + air.layover + gD;
+      out += '<div class="row"><span>Aérea · ' + air.oa.node.id + ' → ' + (air.viaLima ? 'LIM → ' : '') + air.da.node.id + ' · ' + air.gc.toFixed(0) + ' km de vuelo</span><b>puerta a puerta ' + hm(total) + '</b></div>' +
+             '<div class="note">Tierra al aeropuerto ' + (aLegO ? aLegO.km.toFixed(0) + ' km' : '≈ ' + air.oa.km.toFixed(0) + ' km') + ' (' + hm(gO) + ') · presentación ' + hm(AIR_CHECKIN) + ' · vuelo ' + hm(air.block) + (air.viaLima ? ' · escala en Lima ' + hm(air.layover) : ' · directo') + ' · tierra al destino ' + (aLegD ? aLegD.km.toFixed(0) + ' km' : '≈ ' + air.da.km.toFixed(0) + ' km') + ' (' + hm(gD) + '). Aeropuertos: ' + air.oa.node.city + ' (' + air.oa.node.id + ') y ' + air.da.node.city + ' (' + air.da.node.id + ').</div>';
     } else {
       out += '<div class="row"><span>Aérea</span><b>no determinada</b></div>' +
              '<div class="note">' + air.reason + '.</div>';
@@ -664,7 +758,7 @@ async function calc() {
   else if (terrestre === false) verdict = 'Acceso de superficie: <b>no disponible</b> — el traslado depende de transporte aéreo.';
   if (verdict) out += '<div class="row"><span>' + verdict + '</span></div>';
 
-  out += '<div class="note">Terrestre: ruta real de OSRM sobre OpenStreetMap (requiere internet). Fluvial: red curada de puertos y rutas comerciales amazónicas — cifras referenciales, pendientes de validar con APN/MTC. Aérea: distancia ortodrómica entre aeropuertos. No sustituye un plan operativo de transporte.</div>';
+  out += '<div class="note">Terrestre: ruta real de OSRM + corrección por altitud (open-meteo) y por tipo de traslado. Fluvial: red curada de puertos con sentido de la corriente; cifras referenciales pendientes de validar con APN/MTC. Aérea: block time por distancia, rutas directas conocidas y escala en Lima cuando aplica; incluye traslados en tierra a/desde el aeropuerto. Requiere internet. No sustituye un plan operativo de transporte.</div>';
 
   box.innerHTML = out;
   drawRoute();
@@ -689,6 +783,12 @@ document.getElementById('modes').addEventListener('click', e => {
   if (route.modes.has(m)) { if (route.modes.size === 1) return; route.modes.delete(m); } else route.modes.add(m);
   btn.setAttribute('aria-pressed', route.modes.has(m));
   calc();
+});
+document.getElementById('veh').addEventListener('click', e => {
+  const btn = e.target.closest('.chip'); if (!btn) return;
+  route.veh = btn.dataset.veh;
+  [...e.currentTarget.children].forEach(c => c.setAttribute('aria-pressed', String(c === btn)));
+  if (route.modes.has('ter') && route.o && route.d) calc();
 });
 document.getElementById('map').addEventListener('click', e => {
   const btn = e.target.closest('.pbtns button'); if (!btn) return;
