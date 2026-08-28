@@ -9,6 +9,8 @@ y listado lateral.
 **https://rojasarca-code.github.io/geolocalizacion-bancos-sangre-diban/**
 
 Funciona desde cualquier dispositivo (PC, tablet, celular) con navegador y conexión a internet.
+En celular el panel de filtros/lista/cálculo y el mapa ocupan toda la pantalla y se alternan
+con la barra inferior **Filtros y lista · Mapa**; en tablet se muestran lado a lado.
 
 ## Cálculo de distancia y tiempo (terrestre / fluvial / aéreo)
 
