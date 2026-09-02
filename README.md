@@ -37,6 +37,19 @@ por tres vías, e indica cuál es viable:
 Datos de apoyo embebidos en `index.html`: `#ports` y `#river` (red fluvial con orden
 hidrográfico), `#airports` (aeropuertos del Perú).
 
+## Red de convenios
+
+La capa *"Red de convenios"* usa la verificación **«semáforo» de agosto 2026**
+(`datos/convenios_semaforo_agosto2026_verificado.xlsx`). Cada banco productor tipo II y cada
+hospital receptor tipo I se enlaza al Registro Nacional **por su código RENIPRESS (CODIGO
+UNICO)**, no por nombre, para mayor exactitud. Resultado: 50 bancos productores, 278
+convenios — 244 verificados por código RENIPRESS, 2 por nombre y 32 sin coincidencia en el
+registro (se muestran igual, marcados *"sin verificar"* y sin punto en el mapa). Las uniones
+del mapa toman las coordenadas del propio registro (`bid`), de modo que heredan el mismo
+ajuste anti-solapamiento que los marcadores. Datos embebidos en `#conv` de `index.html`; copia
+en `datos/convenios.json`. Regenerable con `scripts/build_conv.ps1` (en el historial del
+repo del proyecto).
+
 ## Detalles técnicos
 
 - `index.html` — aplicación completa en un solo archivo (HTML/CSS/JS). Los datos de los
