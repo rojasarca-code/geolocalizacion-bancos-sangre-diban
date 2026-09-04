@@ -27,7 +27,7 @@ foreach ($si in $ss.sst.si) {
 }
 Write-Host "shared strings: $($S.Count)"
 
-[xml]$sh = Get-Content -Raw -Encoding UTF8 (Join-Path $xl 'xl\worksheets\sheet2.xml')
+[xml]$sh = Get-Content -Raw -Encoding UTF8 (Join-Path $xl 'xl\worksheets\sheet1.xml')
 function CellVal($c) {
   if ($null -eq $c) { return '' }
   $v = $c.v
@@ -39,7 +39,7 @@ function G($h, $k) { $v = $h[$k]; if ($null -eq $v) { return '' } return ([strin
 $rows = @()
 foreach ($r in $sh.worksheet.sheetData.row) {
   $rn = [int]$r.r
-  if ($rn -lt 3 -or $rn -gt 292) { continue }
+  if ($rn -lt 3 -or $rn -gt 296) { continue }
   $cells = @{}
   foreach ($c in $r.c) { $cells[($c.r -replace '\d','')] = (CellVal $c) }
   $rows += [pscustomobject]@{
