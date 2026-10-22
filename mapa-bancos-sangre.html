@@ -35,7 +35,7 @@
        background:transparent;color:oklch(45% 0.015 250);cursor:pointer}
   .seg button[aria-pressed=true]{background:#fff;color:oklch(24% 0.012 250);box-shadow:0 1px 3px rgba(0,0,0,.09);font-weight:600}
   .chips{display:flex;gap:6px;flex-wrap:wrap}
-  .chip{font-size:12px;font-weight:500;padding:6px 11px;border-radius:999px;border:1px solid oklch(88% 0.008 250);
+  .chip{white-space:nowrap;font-size:12px;font-weight:500;padding:6px 11px;border-radius:999px;border:1px solid oklch(88% 0.008 250);
        background:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;color:oklch(38% 0.012 250)}
   .chip .dot{width:8px;height:8px;border-radius:50%}
   .chip[aria-pressed=true]{background:oklch(24% 0.012 250);border-color:oklch(24% 0.012 250);color:#fff}
@@ -107,6 +107,35 @@
        border:1px solid oklch(90% 0.006 250);border-radius:9px;padding:11px 13px;font-size:11.5px;display:flex;flex-direction:column;gap:6px}
   .legend div{display:flex;align-items:center;gap:7px;white-space:nowrap}
   .legend i{width:10px;height:10px;border-radius:50%;display:block}
+  /* tránsito, paradas e itinerario */
+  .vlist{display:flex;flex-direction:column;gap:5px}
+  .vlist:empty{display:none}
+  .vrow{display:grid;grid-template-columns:16px minmax(0,1fr) auto auto;gap:7px;align-items:center;font-size:11.5px;line-height:1.3}
+  .vrow span.nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .vnum{width:16px;height:16px;border-radius:50%;background:oklch(30% 0.02 250);color:#fff;font:500 9.5px "IBM Plex Mono",monospace;display:grid;place-items:center}
+  .vrow select{width:auto;padding:3px 6px;font-size:11px;border-radius:5px}
+  .vrow button{border:0;background:none;cursor:pointer;color:oklch(55% 0.02 250);font-size:15px;line-height:1;padding:0 2px}
+  .vrow button:hover{color:oklch(48% 0.17 30)}
+  .optrow{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:12px}
+  .optrow label{display:flex;align-items:center;gap:6px;cursor:pointer}
+  .optrow input[type=time]{font-family:inherit;font-size:12.5px;padding:5px 8px;border:1px solid oklch(88% 0.008 250);border-radius:6px;background:#fff}
+  .itin{display:flex;flex-direction:column}
+  .itin .pt{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:7px;align-items:baseline;font-size:12px;padding:3px 0}
+  .itin .pt b{font-family:"IBM Plex Mono",monospace;font-weight:500;font-size:12px}
+  .itin .pt .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .itin .leg{font-size:10.5px;color:oklch(52% 0.015 250);margin-left:7px;border-left:2px solid oklch(86% 0.01 250);padding:3px 0 3px 15px;line-height:1.45}
+  .itin .leg.fl{border-left-style:dashed;border-left-color:oklch(55% 0.12 220)}
+  .itin .stop{font-size:10.5px;color:oklch(45% 0.13 60);margin-left:7px;border-left:2px solid oklch(86% 0.01 250);padding:2px 0 2px 15px}
+  .cand{display:flex;flex-direction:column;gap:3px;border-top:1px dashed oklch(88% 0.008 250);padding-top:8px}
+  .cand .c{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;font-size:11.5px}
+  .cand .c span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cand .c em{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:10px;color:oklch(58% 0.015 250)}
+  .cand button{font-family:inherit;font-size:10.5px;padding:3px 8px;border:1px solid oklch(86% 0.008 250);background:#fff;border-radius:5px;cursor:pointer;white-space:nowrap}
+  .cand button:hover{border-color:oklch(52% 0.17 22);color:oklch(45% 0.17 22)}
+  body.picking #map{cursor:crosshair}
+  body.picking #vMap{background:oklch(24% 0.012 250);color:#fff;border-color:oklch(24% 0.012 250)}
+  .vpin{width:18px;height:18px;border-radius:50%;background:oklch(30% 0.02 250);color:#fff;border:2px solid #fff;
+       box-shadow:0 1px 4px rgba(0,0,0,.4);font:600 10px "IBM Plex Mono",monospace;display:grid;place-items:center}
   /* barra de navegación móvil (sólo se muestra en pantallas pequeñas) */
   .mobabar{display:none}
   /* tablet / pantallas medianas: barra lateral más angosta, misma disposición */
@@ -178,11 +207,14 @@
     <div class="plist" id="plist"></div>
   </div>
   <details class="calc" id="calc">
-    <summary>Cálculo de distancia y tiempo <span class="mark">+</span></summary>
+    <summary>Ruta, tránsito y tiempos <span class="mark">+</span></summary>
     <div class="body">
       <div class="pick"><i style="background:oklch(52% 0.17 22)"></i><select id="oSel"></select></div>
+      <div class="vlist" id="viaList"></div>
+      <div class="pick"><i style="background:#fff;border:2px solid oklch(30% 0.02 250);width:10px;height:10px;margin-left:2px"></i><select id="vSel"></select></div>
       <div class="pick"><i style="background:oklch(45% 0.11 250)"></i><select id="dSel"></select></div>
       <div class="mini">
+        <button id="vMap">+ Tránsito en mapa</button>
         <button id="swap">Invertir</button>
         <button id="clr">Limpiar</button>
       </div>
@@ -202,6 +234,10 @@
           <button class="chip" data-veh="ambulancia" aria-pressed="false">Ambulancia</button>
         </div>
       </div>
+      <div class="optrow">
+        <label>Salida <input type="time" id="dep"></label>
+        <label><input type="checkbox" id="rest" checked> Descanso del conductor (30 min / 4 h)</label>
+      </div>
       <div class="res" id="res"><div class="note">Selecciona dos establecimientos —desde estas listas o con los botones «Origen» / «Destino» del globo en el mapa— para estimar distancia y tiempo por vía terrestre (ruta real de carretera), fluvial y aérea.</div></div>
     </div>
   </details>
@@ -212,7 +248,7 @@
     <div class="stat"><b id="s4">0</b><span>Regiones</span></div>
   </div>
   <div class="list" id="list"></div>
-  <div class="foot">Fuentes: Registro Nacional de Bancos de Sangre Autorizados (hojas BS I A, BS I B, BS I C, BS II) y verificación de convenios «semáforo» (agosto 2026): 50 bancos productores tipo II y 278 convenios, enlazados por código RENIPRESS contra el registro (244 verificados por código, 2 por nombre, 32 sin coincidencia). Coordenadas aproximadas al centro del distrito declarado.</div>
+  <div class="foot">Fuentes: Registro Nacional de Bancos de Sangre Autorizados (hojas BS I A, BS I B, BS I C, BS II) y verificación de convenios «semáforo» (agosto 2026): 49 bancos productores tipo II y 277 convenios, enlazados por código RENIPRESS contra el registro (245 verificados por código, 2 por nombre, 30 sin coincidencia). Coordenadas aproximadas al centro del distrito declarado.</div>
 </aside>
 <main>
   <div id="map"></div>
@@ -264,9 +300,16 @@ const REGIONS = [...new Set(RAW.map(b => b.reg))].sort();
 const state = { reg: 'ALL', q: '', grupo: 'ALL', tipos: new Set(['IA','IB','IC','II']) };
 
 const map = L.map('map', { zoomControl: true, minZoom: 4 }).setView([-9.6, -75.4], 5);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap contributors', maxZoom: 19
-}).addTo(map);
+const ESRI = s => 'https://server.arcgisonline.com/ArcGIS/rest/services/' + s + '/MapServer/tile/{z}/{y}/{x}';
+const ESRI_ATTR = 'Tiles &copy; Esri — Esri, HERE, Garmin, OpenStreetMap contributors, Maxar';
+const t = (s, o) => L.tileLayer(ESRI(s), Object.assign({ attribution: ESRI_ATTR, maxZoom: 19 }, o));
+const BASES = {
+  'Calles': t('World_Street_Map'),
+  'Gris': L.layerGroup([t('Canvas/World_Light_Gray_Base', { maxZoom: 16 }), t('Canvas/World_Light_Gray_Reference', { maxZoom: 16 })]),
+  'Satélite': L.layerGroup([t('World_Imagery'), t('Reference/World_Boundaries_and_Places'), t('Reference/World_Transportation', { opacity: .55 })])
+};
+BASES['Calles'].addTo(map);
+L.control.layers(BASES, null, { position: 'topright' }).addTo(map);
 const layer = L.layerGroup().addTo(map);
 
 const sel = document.getElementById('reg');
@@ -313,6 +356,7 @@ function popup(b) {
     (b.susp ? '<div class="warn">⚠ Registro con observación de suspensión en la fuente.</div>' : '') +
     convBlock(b) +
     '<div class="pbtns"><button data-set="o" data-id="'+b.id+'">Origen</button>' +
+    '<button data-set="v" data-id="'+b.id+'">Tránsito</button>' +
     '<button data-set="d" data-id="'+b.id+'">Destino</button></div></div>';
 }
 
@@ -475,14 +519,34 @@ const RG = {};
 PORTS.forEach(p => { RG[p.id] = []; });
 RIVER.forEach(e => { RG[e[0]].push([e[1], e[2], e[3], e[4]]); RG[e[1]].push([e[0], e[2], e[3], e[4]]); });
 
-const route = { o: null, d: null, modes: new Set(['ter','flu','aer']), veh: 'auto', geo: {} };
+const REST_EVERY = 4, REST_MIN = 30, MAX_VIA = 8, CAND_KM = 3;
+const VIAS = [
+  { min: 75, v: 100, n: 'Carretera troncal / autopista' },
+  { min: 58, v: 80,  n: 'Carretera nacional / vía expresa' },
+  { min: 45, v: 60,  n: 'Carretera departamental / avenida' },
+  { min: 30, v: 40,  n: 'Vía vecinal / calle' },
+  { min: 0,  v: 30,  n: 'Vía local / acceso' }
+];
+const FERRY_KMH = 22;
+const route = { o: null, d: null, via: [], modes: new Set(['ter','flu','aer']), veh: 'auto', rest: true, geo: {} };
 let routeLayers = L.layerGroup().addTo(map);
+let lastRoad = null, picking = false;
 
-const oSel = document.getElementById('oSel'), dSel = document.getElementById('dSel');
-const opts = '<option value="">— seleccionar establecimiento —</option>' +
-  [...RAW].sort((a,b) => (a.reg+a.name).localeCompare(b.reg+b.name, 'es'))
-    .map(b => '<option value="'+b.id+'">'+b.reg+' · '+LABEL[b.tipo]+' · '+b.name.slice(0,58)+'</option>').join('');
-oSel.innerHTML = opts; dSel.innerHTML = opts;
+const oSel = document.getElementById('oSel'), dSel = document.getElementById('dSel'), vSel = document.getElementById('vSel');
+const list = [...RAW].sort((a,b) => (a.reg+a.name).localeCompare(b.reg+b.name, 'es'))
+  .map(b => '<option value="'+b.id+'">'+b.reg+' · '+LABEL[b.tipo]+' · '+b.name.slice(0,58)+'</option>').join('');
+oSel.innerHTML = '<option value="">— origen —</option>' + list;
+dSel.innerHTML = '<option value="">— destino —</option>' + list;
+vSel.innerHTML = '<option value="">+ agregar punto de tránsito (establecimiento)…</option>' + list;
+const depIn = document.getElementById('dep');
+{ const n = new Date(); n.setMinutes(Math.ceil(n.getMinutes()/15)*15); depIn.value = String(n.getHours()%24).padStart(2,'0') + ':' + String(n.getMinutes()%60).padStart(2,'0'); }
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const seq = () => [route.o, ...route.via, route.d];
+function clock(hours) {
+  const [H, M] = (depIn.value || '08:00').split(':').map(Number);
+  const tot = Math.round(H*60 + M + hours*60), day = Math.floor(tot / 1440), m = ((tot % 1440) + 1440) % 1440;
+  return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0') + (day ? ' +' + day + 'd' : '');
+}
 
 function haversine(a, b) {
   const R = 6371, rad = Math.PI/180;
@@ -645,143 +709,345 @@ function airRoute(o, d) {
   return { ok:true, oa, da, gc, block, layover, viaLima: segs.length > 1, coords };
 }
 
+/* ---- ruta terrestre completa (origen → tránsitos → destino): OSRM con pasos, transbordador y tipo de vía ---- */
+const roadCache = new Map();
+async function fetchRoad(points) {
+  const key = points.map(p => p.lat.toFixed(5) + ',' + p.lng.toFixed(5)).join(';');
+  if (roadCache.has(key)) return roadCache.get(key);
+  const url = OSRM + points.map(p => p.lng.toFixed(5) + ',' + p.lat.toFixed(5)).join(';') +
+    '?overview=full&geometries=geojson&alternatives=false&steps=true&annotations=distance,duration';
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const j = await res.json();
+  if (j.code !== 'Ok' || !j.routes || !j.routes.length) throw new Error(j.code || 'sin ruta');
+  const r = j.routes[0];
+  const by = VIAS.map(v => ({ ...v, km: 0 }));
+  const ferryPts = [];
+  const legs = r.legs.map(l => {
+    let km = 0, h = 0, fkm = 0;
+    const D = (l.annotation && l.annotation.distance) || [], T = (l.annotation && l.annotation.duration) || [];
+    let idx = 0;
+    (l.steps || []).forEach(st => {
+      const n = Math.max(0, st.geometry.coordinates.length - 1);
+      if (st.mode === 'ferry') { fkm += st.distance / 1000; ferryPts.push(st.geometry.coordinates.map(c => [c[1], c[0]])); idx += n; return; }
+      km += st.distance / 1000; h += st.duration / 3600;
+      for (let k = 0; k < n && idx < D.length; k++, idx++) {
+        const dm = D[idx], sp = T[idx] > 0 ? (dm / T[idx]) * 3.6 : 0;
+        (by.find(v => sp >= v.min) || by[by.length - 1]).km += dm / 1000;
+      }
+    });
+    return { km, h, fkm, fh: fkm / FERRY_KMH };
+  });
+  const out = { legs, by: by.filter(v => v.km > 0.05), ferryPts,
+    km: legs.reduce((a,l) => a + l.km, 0), h: legs.reduce((a,l) => a + l.h, 0),
+    fkm: legs.reduce((a,l) => a + l.fkm, 0), fh: legs.reduce((a,l) => a + l.fh, 0),
+    pts: r.geometry.coordinates.map(c => [c[1], c[0]]) };
+  if (out.fkm > 0.5 && out.km < 0.5) throw new Error('solo fluvial');
+  roadCache.set(key, out);
+  return out;
+}
+
+/* perfil de altitud sobre la ruta completa (open-meteo): sólo se guardan consultas exitosas */
+async function elevOnPath(path, key) {
+  key = 'E:P:' + key;
+  if (RCACHE[key]) return RCACHE[key];
+  const n = Math.min(90, Math.max(8, Math.round(path.length / 12)));
+  const step = (path.length - 1) / (n - 1);
+  const lats = [], lngs = [];
+  for (let i = 0; i < n; i++) { const p = path[Math.round(i*step)]; lats.push(p[0].toFixed(4)); lngs.push(p[1].toFixed(4)); }
+  for (let tryN = 0; tryN < 3; tryN++) {
+    try {
+      const j = await (await fetch(ELEV + '?latitude=' + lats.join(',') + '&longitude=' + lngs.join(','))).json();
+      const e = j.elevation || [];
+      if (!e.length) throw 0;
+      let mx = 0, hi = 0;
+      for (let i = 0; i < e.length; i++) { if (e[i] > mx) mx = e[i]; if (e[i] >= 1500) hi++; }
+      const out = { ok:true, maxEle:Math.round(mx), hi:hi / e.length };
+      RCACHE[key] = out; cacheSave();
+      return out;
+    } catch (e) { await new Promise(r => setTimeout(r, 700 * (tryN + 1))); }
+  }
+  return { ok:false };
+}
+
+/* paradas posibles: establecimientos a ≤ CAND_KM de la ruta */
+function candidates(road) {
+  const P = road.pts, step = Math.max(1, Math.ceil(P.length / 900)), S = [];
+  for (let i = 0; i < P.length; i += step) S.push([P[i][0], P[i][1], i / (P.length - 1)]);
+  const used = new Set(seq().filter(p => p.id != null).map(p => p.id));
+  const out = [];
+  RAW.forEach(b => {
+    if (used.has(b.id) || b.lat == null) return;
+    if (haversine(b, route.o) < 5 || haversine(b, route.d) < 5) return;
+    const cl = Math.cos(b.lat * Math.PI / 180);
+    let best = 1e9, at = 0;
+    for (const [la, ln, f] of S) {
+      const dx = (b.lng - ln) * 111.32 * cl, dy = (b.lat - la) * 110.57, dd = dx*dx + dy*dy;
+      if (dd < best) { best = dd; at = f; }
+    }
+    best = Math.sqrt(best);
+    if (best <= CAND_KM) out.push({ b, off: best, at });
+  });
+  out.sort((a, b) => a.at - b.at);
+  return out.slice(0, 12);
+}
+
+/* ---- puntos de tránsito ---- */
+function viaFromBank(b, at) { return { id: b.id, lat: b.lat, lng: b.lng, name: b.name, place: [b.dist, b.prov].filter(Boolean).join(', '), stop: 15, at }; }
+function addVia(v) {
+  if (route.via.length >= MAX_VIA) return;
+  if (v.id != null && seq().some(p => p && p.id === v.id)) return;
+  if (v.at != null) {
+    const i = route.via.findIndex(x => (x.at ?? 2) > v.at);
+    i < 0 ? route.via.push(v) : route.via.splice(i, 0, v);
+  } else route.via.push(v);
+  document.getElementById('calc').open = true;
+  paintVias(); calc();
+}
+function paintVias() {
+  const box = document.getElementById('viaList');
+  box.innerHTML = route.via.map((v, i) =>
+    '<div class="vrow"><span class="vnum">' + (i+1) + '</span><span class="nm" title="' + esc(v.name) + '">' + esc(v.name) + '</span>' +
+    '<select data-vi="' + i + '" title="Tiempo de parada">' + [0,10,15,30,45,60,90,120].map(m =>
+      '<option value="' + m + '"' + (m === v.stop ? ' selected' : '') + '>' + (m ? (m < 60 ? m + ' min' : (m/60) + ' h') : 'sin parada') + '</option>').join('') + '</select>' +
+    '<button data-rm="' + i + '" title="Quitar">×</button></div>').join('');
+  vSel.disabled = route.via.length >= MAX_VIA;
+}
+document.getElementById('viaList').addEventListener('change', e => {
+  const s = e.target.closest('select[data-vi]'); if (!s) return;
+  route.via[+s.dataset.vi].stop = +s.value; renderResult();
+});
+document.getElementById('viaList').addEventListener('click', e => {
+  const b = e.target.closest('button[data-rm]'); if (!b) return;
+  route.via.splice(+b.dataset.rm, 1); paintVias(); calc();
+});
+
 /* ---- dibujo de las rutas activas ---- */
-const GEOCOL = { ter:'#c2334d', flu:'oklch(48% 0.13 300)', aer:'oklch(45% 0.11 250)' };
+const GEOCOL = { flu:'oklch(48% 0.13 300)', aer:'oklch(45% 0.11 250)' };
 function drawRoute() {
   routeLayers.clearLayers();
   if (!route.o || !route.d) return;
-  const acc = [];
-  ['ter','flu','aer'].forEach(m => {
+  const acc = [], pts = seq();
+  const road = lastCalc && lastCalc.road && !lastCalc.road.suspect ? lastCalc.road : null;
+  if (road && route.modes.has('ter')) {
+    routeLayers.addLayer(L.polyline(road.pts, { color:'#fff', weight:7, opacity:.9 }));
+    routeLayers.addLayer(L.polyline(road.pts, { color:'#c2334d', weight:4, opacity:.95 })
+      .bindTooltip('Ruta por carretera · ' + road.km.toFixed(1) + ' km', { sticky:true }));
+    road.ferryPts.forEach(p => {
+      routeLayers.addLayer(L.polyline(p, { color:'#fff', weight:7, opacity:.9 }));
+      routeLayers.addLayer(L.polyline(p, { color:'oklch(55% 0.12 220)', weight:4, dashArray:'8 6' }).bindTooltip('Tramo fluvial', { sticky:true }));
+    });
+    candidates(road).forEach(c => routeLayers.addLayer(L.circleMarker([c.b.lat, c.b.lng],
+      { radius:7, color:'oklch(45% 0.13 60)', weight:2, dashArray:'2 3', fill:false })
+      .bindTooltip('Parada posible · ' + c.b.name + ' · a ' + c.off.toFixed(1) + ' km de la ruta')));
+    acc.push.apply(acc, road.pts);
+  }
+  ['flu','aer'].forEach(m => {
     if (!route.modes.has(m) || !route.geo[m]) return;
-    routeLayers.addLayer(L.polyline(route.geo[m], {
-      color: GEOCOL[m], weight: m === 'ter' ? 4 : 2.5, opacity:.9,
-      dashArray: m === 'ter' ? null : '6 6' }));
+    routeLayers.addLayer(L.polyline(route.geo[m], { color:GEOCOL[m], weight:2.5, opacity:.9, dashArray:'6 6' }));
     acc.push.apply(acc, route.geo[m]);
   });
   [[route.o, '#c2334d'], [route.d, 'oklch(45% 0.11 250)']].forEach(pair =>
     routeLayers.addLayer(L.circleMarker([pair[0].lat, pair[0].lng], { radius:10, color:pair[1], weight:3, fill:false })));
-  if (!acc.length) acc.push([route.o.lat, route.o.lng], [route.d.lat, route.d.lng]);
+  route.via.forEach((v, i) => routeLayers.addLayer(L.marker([v.lat, v.lng], {
+    icon: L.divIcon({ className:'', html:'<div class="vpin">' + (i+1) + '</div>', iconSize:[18,18], iconAnchor:[9,9] }), zIndexOffset: 1000
+  }).bindTooltip('Tránsito ' + (i+1) + ' · ' + v.name)));
+  if (!acc.length) pts.forEach(p => acc.push([p.lat, p.lng]));
   map.fitBounds(L.latLngBounds(acc).pad(0.25), { maxZoom: 12 });
 }
 
-let calcSeq = 0;
-async function calc() {
-  const box = document.getElementById('res');
-  route.geo = {};
-  if (!route.o || !route.d) {
-    box.innerHTML = '<div class="note">Selecciona dos establecimientos —desde estas listas o con los botones «Origen» / «Destino» del globo en el mapa— para estimar distancia y tiempo por vía terrestre (ruta real de carretera), fluvial y aérea.</div>';
-    drawRoute(); return;
-  }
-  if (route.o.id === route.d.id) {
-    box.innerHTML = '<div class="note">Origen y destino son el mismo establecimiento.</div>';
-    drawRoute(); return;
-  }
-  const seq = ++calcSeq;
-  const o = route.o, d = route.d, gc = haversine(o, d);
-  const head = '<div class="row head"><span>' + o.name.slice(0,26) + ' → ' + d.name.slice(0,26) + '</span></div>' +
-               '<div class="row"><span>Distancia en línea recta</span><b>' + gc.toFixed(1) + ' km</b></div>';
-  box.innerHTML = head + '<div class="note">Calculando rutas y tiempos…</div>';
+/* ---- itinerario: conducción (con corrección de terreno y vehículo) + fluvial + paradas + descansos ---- */
+function itinerary(road, f, vm) {
+  const pts = seq();
+  let t = 0, cont = 0, rests = 0, stops = 0, drive = 0, html = '';
+  const row = (n, nm, time, sub) => '<div class="pt"><span class="vnum" style="background:' + (n === 'O' ? 'oklch(52% 0.17 22)' : n === 'D' ? 'oklch(45% 0.11 250)' : 'oklch(30% 0.02 250)') + '">' + n + '</span>' +
+    '<span class="nm" title="' + esc(nm) + '">' + esc(nm) + (sub ? ' <span style="opacity:.6">· ' + esc(sub) + '</span>' : '') + '</span><b>' + time + '</b></div>';
+  html += row('O', pts[0].name, clock(0), 'salida');
+  road.legs.forEach((l, i) => {
+    const dh = l.h * f * vm;
+    drive += dh;
+    let legRest = 0;
+    if (route.rest) { cont += dh; while (cont >= REST_EVERY) { legRest++; cont -= REST_EVERY; } }
+    rests += legRest;
+    t += dh + l.fh + legRest * REST_MIN / 60;
+    html += '<div class="leg' + (l.fkm > 0.5 ? ' fl' : '') + '">' + (l.km + l.fkm).toFixed(1) + ' km · ' + hm(dh + l.fh) +
+      (l.fkm > 0.5 ? ' (incl. ' + l.fkm.toFixed(0) + ' km fluvial)' : '') +
+      (legRest ? ' · ' + legRest + ' descanso' + (legRest > 1 ? 's' : '') + ' de ' + REST_MIN + ' min' : '') + '</div>';
+    const p = pts[i+1], last = i === road.legs.length - 1;
+    html += row(last ? 'D' : String(i+1), p.name, clock(t), last ? 'llegada' : p.place);
+    if (!last && p.stop) {
+      html += '<div class="stop">Parada ' + p.stop + ' min · sale ' + clock(t + p.stop/60) + '</div>';
+      t += p.stop / 60; stops += p.stop / 60;
+      if (p.stop >= REST_MIN) cont = 0;
+    }
+  });
+  return { html, total: t, rests, stops, drive };
+}
 
-  const road = route.modes.has('ter') ? await roadRoute(o, d) : null;
-  if (seq !== calcSeq) return;
+/* ---- cálculo: ruta terrestre real + alternativas fluvial y aérea ---- */
+let calcSeq = 0, lastCalc = null;
+async function calc() {
+  const seqId = ++calcSeq;
+  route.geo = {};
+  lastCalc = null;
+  if (!route.o || !route.d || (route.o.id === route.d.id && !route.via.length)) { renderResult(); drawRoute(); return; }
+  const o = route.o, d = route.d;
+  const C = { loading: true, road: null, roadErr: null };
+  lastCalc = C; renderResult(); drawRoute();
+
+  if (route.modes.has('ter')) {
+    try {
+      const road = await fetchRoad(seq());
+      if (seqId !== calcSeq) return;
+      const gcTot = (() => { let g = 0; const P = seq(); for (let i = 0; i < P.length - 1; i++) g += haversine(P[i], P[i+1]); return g; })();
+      if (road.fkm <= 0.5 && road.km > 150 && (road.h > 0 && (road.km / road.h < 18 || road.km > gcTot * 6))) road.suspect = true;
+      C.road = road;
+      if (!road.suspect) {
+        const key = seq().map(p => p.lat.toFixed(4) + ',' + p.lng.toFixed(4)).join(';');
+        const elev = await elevOnPath(road.pts, key);
+        if (seqId !== calcSeq) return;
+        C.trn = terrainFactor(elev, road.h > 0 ? road.km / road.h : 60, road.km);
+        C.elev = elev;
+      }
+    } catch (e) { C.roadErr = (e && e.message === 'solo fluvial') ? 'fluvial' : 'noroute'; }
+  }
+
   const flu = route.modes.has('flu') ? fluvialRoute(o, d) : null;
   const air = route.modes.has('aer') ? airRoute(o, d) : null;
-
-  const [elev, fLegO, fLegD, aLegO, aLegD] = await Promise.all([
-    (road && road.ok && !road.suspect) ? elevProfile(o, d) : Promise.resolve(null),
+  const [fLegO, fLegD, aLegO, aLegD] = await Promise.all([
     (flu && flu.ok && flu.op.km > 8) ? legDrive(o, flu.op.node) : Promise.resolve(null),
     (flu && flu.ok && flu.dp.km > 8) ? legDrive(flu.dp.node, d) : Promise.resolve(null),
     (air && air.ok && air.oa.km > 8) ? legDrive(o, air.oa.node) : Promise.resolve(null),
     (air && air.ok && air.da.km > 8) ? legDrive(air.da.node, d) : Promise.resolve(null)
   ]);
-  if (seq !== calcSeq) return;
+  if (seqId !== calcSeq) return;
+  Object.assign(C, { loading: false, flu, air, fLegO, fLegD, aLegO, aLegD });
+  if (flu && flu.ok) route.geo.flu = flu.coords;
+  if (air && air.ok) route.geo.aer = air.coords;
+  renderResult(); drawRoute();
+}
 
-  let terrestre = null;   // true = viable, false = no viable, null = no evaluado / sin dato
-  let out = head;
+function renderResult() {
+  const box = document.getElementById('res'), C = lastCalc;
+  if (!route.o || !route.d) {
+    box.innerHTML = '<div class="note">Selecciona origen y destino —en estas listas o con los botones «Origen» / «Tránsito» / «Destino» del globo— para calcular la ruta real por carretera, con tiempos de parada y descanso, y las alternativas fluvial y aérea. Puedes añadir hasta ' + MAX_VIA + ' puntos de tránsito.</div>';
+    return;
+  }
+  if (route.o.id === route.d.id && !route.via.length) { box.innerHTML = '<div class="note">Origen y destino son el mismo establecimiento.</div>'; return; }
+  const o = route.o, d = route.d, pts = seq();
+  let gc = 0; for (let i = 0; i < pts.length - 1; i++) gc += haversine(pts[i], pts[i+1]);
+  const head = '<div class="row head"><span>' + esc(o.name.slice(0,26)) + ' → ' + esc(d.name.slice(0,26)) + '</span></div>' +
+               '<div class="row"><span>Distancia en línea recta' + (route.via.length ? ' (por los tránsitos)' : '') + '</span><b>' + gc.toFixed(1) + ' km</b></div>';
+  if (!C || C.loading) { box.innerHTML = head + '<div class="note">Calculando rutas y tiempos…</div>'; return; }
 
-  if (road) {
-    if (road.ok && !road.suspect) {
-      terrestre = true;
-      route.geo.ter = road.coords;
-      const trn = terrainFactor(elev, road.dist / road.dur, road.dist);
-      const stops = 0.2 + 0.12 * Math.floor(road.dist / 150);
-      const veh = VEH[route.veh] || VEH.auto;
-      const durAdj = (road.dur * trn.f + stops) * veh.m;
-      out += '<div class="row"><span>Terrestre · carretera · ' + road.dist.toFixed(0) + ' km · ' + veh.label + '</span><b>' + hm(durAdj) + '</b></div>' +
-             '<div class="note">Base OSRM ' + hm(road.dur) + ' · terreno ×' + trn.f.toFixed(2) + ' (' + trn.label +
-             (elev && elev.ok ? ', cota máx ' + elev.maxEle + ' m' : '') + ') · paradas +' + hm(stops) +
-             (veh.m !== 1 ? ' · ' + veh.label + ' ×' + veh.m.toFixed(2) : '') + '.</div>';
-    } else if (road.ok && road.suspect) {
+  const veh = VEH[route.veh] || VEH.auto;
+  const stopH = route.via.reduce((a, v) => a + (v.stop || 0), 0) / 60;
+  let terrestre = null, out = head, road = C.road;
+
+  if (route.modes.has('ter')) {
+    if (road && !road.suspect) {
+      const mixed = road.fkm > 0.5;
+      terrestre = !mixed;
+      const f = C.trn ? C.trn.f : 1.18, it = itinerary(road, f, veh.m);
+      if (mixed) out += '<div class="row" style="font-size:11.5px;color:oklch(48% 0.17 30)"><span>Ruta mixta: no hay conexión continua por carretera</span><b></b></div>';
+      out += '<div class="itin">' + it.html + '</div>';
+      out += '<div class="row" style="margin-top:4px"><span><b style="font-family:inherit;font-weight:600">Tiempo terrestre total</b> · ' + (road.km + road.fkm).toFixed(1) + ' km · ' + veh.label + '</span><b style="font-size:14px">' + hm(it.total) + '</b></div>';
+      out += '<div class="row" style="font-size:11.5px;opacity:.8"><span>· Conducción (' + road.km.toFixed(1) + ' km · ' + (it.drive ? Math.round(road.km / it.drive) : 0) + ' km/h media)</span><b style="font-size:11.5px">' + hm(it.drive) + '</b></div>';
+      if (mixed) out += '<div class="row" style="font-size:11.5px;opacity:.8"><span>· Fluvial (' + road.fkm.toFixed(1) + ' km · ' + FERRY_KMH + ' km/h)</span><b style="font-size:11.5px">' + hm(road.fh) + '</b></div>';
+      if (it.stops) out += '<div class="row" style="font-size:11.5px;opacity:.8"><span>· Paradas en tránsito</span><b style="font-size:11.5px">' + hm(it.stops) + '</b></div>';
+      if (it.rests) out += '<div class="row" style="font-size:11.5px;opacity:.8"><span>· Descansos del conductor (' + it.rests + ' × ' + REST_MIN + ' min)</span><b style="font-size:11.5px">' + hm(it.rests * REST_MIN / 60) + '</b></div>';
+      out += '<div class="note">Base OSRM ' + hm(road.h) + ' · terreno ×' + f.toFixed(2) + ' (' + (C.trn ? C.trn.label : 'terreno no evaluado') +
+             (C.elev && C.elev.ok ? ', cota máx ' + C.elev.maxEle + ' m' : '') + ')' + (veh.m !== 1 ? ' · ' + veh.label + ' ×' + veh.m.toFixed(2) : '') + '.</div>';
+      out += road.by.map(v => '<div class="row" style="font-size:11px;opacity:.62"><span>· ' + v.n + '</span><b style="font-size:11px">' + v.km.toFixed(1) + ' km</b></div>').join('');
+      const cs = candidates(road);
+      if (cs.length) out += '<div class="cand"><div class="row head"><span>Paradas posibles en ruta · establecimientos a ≤' + CAND_KM + ' km</span></div>' +
+        cs.map(c => '<div class="c"><span title="' + esc(c.b.name) + '">' + esc(c.b.name) + ' <em>' + LABEL[c.b.tipo] + ' · ' + esc(c.b.dist) + ' · ' + c.off.toFixed(1) + ' km</em></span>' +
+          '<button data-cand="' + c.b.id + '" data-at="' + c.at.toFixed(4) + '"' + (route.via.length >= MAX_VIA ? ' disabled' : '') + '>+ parada</button></div>').join('') + '</div>';
+    } else if (road && road.suspect) {
       terrestre = false;
       out += '<div class="row"><span>Terrestre</span><b>no viable</b></div>' +
-             '<div class="note">La única traza que devuelve el ruteador (' + road.dist.toFixed(0) + ' km, ' + hm(road.dur) + ') no corresponde a una ruta de carretera practicable: implica tramos por transbordador o una red vial inconexa. En la práctica no hay acceso terrestre continuo.</div>';
-    } else if (road.code === 'neterr') {
-      const kmEst = gc * 1.32, vEst = gc > 400 ? 60 : 50;
-      out += '<div class="row"><span>Terrestre · estimado ' + kmEst.toFixed(0) + ' km (sin conexión al ruteador)</span><b>' + hm(kmEst / vEst) + '</b></div>' +
-             '<div class="note">No se pudo consultar el servicio de rutas; se muestra una estimación geodésica (factor 1,32). Reintenta para obtener la ruta real.</div>';
-    } else {
+             '<div class="note">La única traza que devuelve el ruteador (' + road.km.toFixed(0) + ' km, ' + hm(road.h) + ') no corresponde a una ruta de carretera practicable: implica una red vial inconexa. En la práctica no hay acceso terrestre continuo.</div>';
+    } else if (C.roadErr === 'noroute') {
       terrestre = false;
       out += '<div class="row"><span>Terrestre</span><b>no posible</b></div>' +
-             '<div class="note">El ruteador no encontró ninguna ruta de carretera entre ambos puntos.</div>';
+             '<div class="note">El ruteador no encontró ninguna ruta de carretera entre los puntos.</div>';
+    } else {
+      terrestre = false;
+      out += '<div class="row"><span>Terrestre · sin acceso por carretera</span><b>—</b></div>';
     }
   }
 
+  const flu = C.flu, air = C.air;
   if (flu) {
     if (flu.ok) {
-      route.geo.flu = flu.coords;
-      const legH = (fLegO ? fLegO.h : flu.op.km / 35) + (fLegD ? fLegD.h : flu.dp.km / 35);
-      const legNote = 'traslado a puertos ' +
-        (fLegO ? fLegO.km.toFixed(0) + ' km' : '≈ ' + flu.op.km.toFixed(0) + ' km') + ' + ' +
-        (fLegD ? fLegD.km.toFixed(0) + ' km' : '≈ ' + flu.dp.km.toFixed(0) + ' km') + ' (' + hm(legH) + ')';
-      const tRap = flu.rh != null ? hm(flu.rh + legH) + ' (rápido)' : null;
-      const tLan = hm(flu.lh + legH) + ' (lancha)' + (flu.rh == null ? '; sin rápido regular' : '');
+      const legH = (C.fLegO ? C.fLegO.h : flu.op.km / 35) + (C.fLegD ? C.fLegD.h : flu.dp.km / 35);
+      const legNote = 'traslado a puertos ' + (C.fLegO ? C.fLegO.km.toFixed(0) + ' km' : '≈ ' + flu.op.km.toFixed(0) + ' km') + ' + ' +
+        (C.fLegD ? C.fLegD.km.toFixed(0) + ' km' : '≈ ' + flu.dp.km.toFixed(0) + ' km') + ' (' + hm(legH) + ')';
+      const tRap = flu.rh != null ? hm(flu.rh + legH + stopH) + ' (rápido)' : null;
+      const tLan = hm(flu.lh + legH + stopH) + ' (lancha)' + (flu.rh == null ? '; sin rápido regular' : '');
       out += '<div class="row"><span>Fluvial · ' + flu.km.toFixed(0) + ' km de río · ' + flu.sense + ' · ' + flu.via.join(' → ') + '</span><b>' + (tRap ? tRap + ' · ' + tLan : tLan) + '</b></div>' +
-             '<div class="note">Embarque en ' + flu.op.node.name + ', desembarque en ' + flu.dp.node.name + '. ' + legNote + '. Navegación ' + flu.sense + '; los tiempos varían con la creciente/vaciante. Cifras referenciales (APN/MTC).</div>';
+             '<div class="note">Embarque en ' + flu.op.node.name + ', desembarque en ' + flu.dp.node.name + '. ' + legNote + (stopH ? ' · incluye paradas en tránsito (' + hm(stopH) + ')' : '') + '. Navegación ' + flu.sense + '; los tiempos varían con la creciente/vaciante. Cifras referenciales (APN/MTC).</div>';
     } else {
-      out += '<div class="row"><span>Fluvial</span><b>no determinada</b></div>' +
-             '<div class="note">' + flu.reason + '.</div>';
+      out += '<div class="row"><span>Fluvial</span><b>no determinada</b></div><div class="note">' + flu.reason + '.</div>';
     }
   }
-
   if (air) {
     if (air.ok) {
-      route.geo.aer = air.coords;
-      const gO = aLegO ? aLegO.h : air.oa.km / 35;
-      const gD = aLegD ? aLegD.h : air.da.km / 35;
-      const total = gO + AIR_CHECKIN + air.block + air.layover + gD;
-      out += '<div class="row"><span>Aérea · ' + air.oa.node.id + ' → ' + (air.viaLima ? 'LIM → ' : '') + air.da.node.id + ' · ' + air.gc.toFixed(0) + ' km de vuelo</span><b>puerta a puerta ' + hm(total) + '</b></div>' +
-             '<div class="note">Tierra al aeropuerto ' + (aLegO ? aLegO.km.toFixed(0) + ' km' : '≈ ' + air.oa.km.toFixed(0) + ' km') + ' (' + hm(gO) + ') · presentación ' + hm(AIR_CHECKIN) + ' · vuelo ' + hm(air.block) + (air.viaLima ? ' · escala en Lima ' + hm(air.layover) : ' · directo') + ' · tierra al destino ' + (aLegD ? aLegD.km.toFixed(0) + ' km' : '≈ ' + air.da.km.toFixed(0) + ' km') + ' (' + hm(gD) + '). Aeropuertos: ' + air.oa.node.city + ' (' + air.oa.node.id + ') y ' + air.da.node.city + ' (' + air.da.node.id + ').</div>';
+      const gO = C.aLegO ? C.aLegO.h : air.oa.km / 35, gD = C.aLegD ? C.aLegD.h : air.da.km / 35;
+      const total = gO + AIR_CHECKIN + air.block + air.layover + gD + stopH;
+      out += '<div class="row"><span>Aérea · ' + air.oa.node.id + ' → ' + (air.viaLima ? 'LIM → ' : '') + air.da.node.id + ' · ' + air.gc.toFixed(0) + ' km de vuelo</span><b>puerta a puerta ' + hm(total) + ' · ' + clock(total) + '</b></div>' +
+             '<div class="note">Tierra al aeropuerto ' + (C.aLegO ? C.aLegO.km.toFixed(0) + ' km' : '≈ ' + air.oa.km.toFixed(0) + ' km') + ' (' + hm(gO) + ') · presentación ' + hm(AIR_CHECKIN) + ' · vuelo ' + hm(air.block) + (air.viaLima ? ' · escala en Lima ' + hm(air.layover) : ' · directo') + ' · tierra al destino ' + (C.aLegD ? C.aLegD.km.toFixed(0) + ' km' : '≈ ' + air.da.km.toFixed(0) + ' km') + ' (' + hm(gD) + '). Aeropuertos: ' + air.oa.node.city + ' (' + air.oa.node.id + ') y ' + air.da.node.city + ' (' + air.da.node.id + ').</div>';
     } else {
-      out += '<div class="row"><span>Aérea</span><b>no determinada</b></div>' +
-             '<div class="note">' + air.reason + '.</div>';
+      out += '<div class="row"><span>Aérea</span><b>no determinada</b></div><div class="note">' + air.reason + '.</div>';
     }
   }
 
   let verdict = '';
   if (terrestre === true) verdict = 'Acceso de superficie: <b>terrestre</b> disponible.';
-  else if (terrestre === false && flu && flu.ok) verdict = 'Acceso de superficie: <b>solo fluvial</b> — no hay ruta de carretera.';
+  else if (terrestre === false && flu && flu.ok) verdict = 'Acceso de superficie: <b>solo fluvial</b> — no hay ruta de carretera continua.';
   else if (terrestre === false) verdict = 'Acceso de superficie: <b>no disponible</b> — el traslado depende de transporte aéreo.';
   if (verdict) out += '<div class="row"><span>' + verdict + '</span></div>';
-
-  out += '<div class="note">Terrestre: ruta real de OSRM + corrección por altitud (open-meteo) y por tipo de traslado. Fluvial: red curada de puertos con sentido de la corriente; cifras referenciales pendientes de validar con APN/MTC. Aérea: block time por distancia, rutas directas conocidas y escala en Lima cuando aplica; incluye traslados en tierra a/desde el aeropuerto. Requiere internet. No sustituye un plan operativo de transporte.</div>';
-
+  out += '<div class="note">Terrestre: ruta real de OSRM por los puntos de tránsito + corrección por altitud (open-meteo) y por tipo de traslado; descanso del conductor y paradas se suman. Fluvial: red curada de puertos con sentido de la corriente (referencial, pendiente de validar con APN/MTC). Aérea: block time por distancia, rutas directas conocidas y escala en Lima cuando aplica; incluye traslados en tierra. Requiere internet. No sustituye un plan operativo de transporte.</div>';
   box.innerHTML = out;
-  drawRoute();
 }
+document.getElementById('res').addEventListener('click', e => {
+  const b = e.target.closest('button[data-cand]'); if (!b) return;
+  addVia(viaFromBank(RAW[+b.dataset.cand], +b.dataset.at));
+});
+
 function setPoint(which, id) {
   const b = id === '' || id == null ? null : RAW[+id];
-  route[which] = b;
+  if (which === 'v') { if (b) addVia(viaFromBank(b)); vSel.value = ''; return; }
+  route[which] = b ? { ...b, place: [b.dist, b.prov].filter(Boolean).join(', ') } : null;
   (which === 'o' ? oSel : dSel).value = b ? String(b.id) : '';
   document.getElementById('calc').open = true;
   calc();
 }
 oSel.addEventListener('change', e => setPoint('o', e.target.value));
 dSel.addEventListener('change', e => setPoint('d', e.target.value));
+vSel.addEventListener('change', e => setPoint('v', e.target.value));
 document.getElementById('swap').addEventListener('click', () => {
-  const a = route.o, b = route.d; route.o = b; route.d = a;
-  oSel.value = b ? String(b.id) : ''; dSel.value = a ? String(a.id) : ''; calc();
+  const a = route.o, b = route.d; route.o = b; route.d = a; route.via.reverse();
+  route.via.forEach(v => { if (v.at != null) v.at = 1 - v.at; });
+  oSel.value = b ? String(b.id) : ''; dSel.value = a ? String(a.id) : ''; paintVias(); calc();
 });
-document.getElementById('clr').addEventListener('click', () => { setPoint('o', ''); setPoint('d', ''); });
+document.getElementById('clr').addEventListener('click', () => {
+  route.via = []; paintVias(); setPoint('o', ''); setPoint('d', '');
+});
+document.getElementById('vMap').addEventListener('click', () => {
+  picking = !picking; document.body.classList.toggle('picking', picking);
+  document.getElementById('vMap').textContent = picking ? 'Haz clic en el mapa…' : '+ Tránsito en mapa';
+});
+map.on('click', e => {
+  if (!picking) return;
+  picking = false; document.body.classList.remove('picking');
+  document.getElementById('vMap').textContent = '+ Tránsito en mapa';
+  const p = { lat: e.latlng.lat, lng: e.latlng.lng };
+  let near = null, nd = 1e9; RAW.forEach(b => { const dd = haversine(p, b); if (dd < nd) { nd = dd; near = b; } });
+  addVia({ lat: p.lat, lng: p.lng, stop: 15,
+    name: 'Punto ' + p.lat.toFixed(3) + ', ' + p.lng.toFixed(3),
+    place: near ? 'cerca de ' + [near.dist, near.prov].filter(Boolean).join(', ') : '' });
+});
 document.getElementById('modes').addEventListener('click', e => {
   const btn = e.target.closest('.chip'); if (!btn) return;
   const m = btn.dataset.m;
@@ -793,12 +1059,15 @@ document.getElementById('veh').addEventListener('click', e => {
   const btn = e.target.closest('.chip'); if (!btn) return;
   route.veh = btn.dataset.veh;
   [...e.currentTarget.children].forEach(c => c.setAttribute('aria-pressed', String(c === btn)));
-  if (route.modes.has('ter') && route.o && route.d) calc();
+  renderResult();
 });
+document.getElementById('rest').addEventListener('change', e => { route.rest = e.target.checked; renderResult(); });
+depIn.addEventListener('input', renderResult);
 document.getElementById('map').addEventListener('click', e => {
   const btn = e.target.closest('.pbtns button'); if (!btn) return;
-  setPoint(btn.dataset.set === 'o' ? 'o' : 'd', btn.dataset.id);
+  setPoint(btn.dataset.set, btn.dataset.id);
 });
+paintVias();
 
 /* ---------- navegación móvil: alternar panel y mapa ---------- */
 (function(){
@@ -825,6 +1094,12 @@ document.getElementById('map').addEventListener('click', e => {
     _setPoint(which, id);
     if (isMobile() && route.o && route.d && route.o.id !== route.d.id) show(false);
   };
+  const _addVia = addVia;
+  addVia = function(v){
+    _addVia(v);
+    if (isMobile() && v.id == null && route.o && route.d) show(false);   // tránsito marcado en el mapa: volver al resultado
+  };
+  document.getElementById('vMap').addEventListener('click', () => { if (isMobile() && picking) show(true); });
 })();
 </script>
 </body>
