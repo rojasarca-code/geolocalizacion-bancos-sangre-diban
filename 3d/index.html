@@ -70,6 +70,7 @@
   <label class="l">Capas</label>
   <label class="chk"><input type="checkbox" id="kRoads" checked> Carreteras principales</label>
   <label class="chk"><input type="checkbox" id="kProv" checked> División provincial</label>
+  <label class="chk"><input type="checkbox" id="kLabels" checked> Nombres de provincias</label>
   <label class="chk"><input type="checkbox" id="kBanks" checked> Bancos de sangre</label>
   <label class="chk"><input type="checkbox" id="kContrast"> Contraste regional (relieve)</label>
   <label class="chk"><input type="checkbox" id="kRot"> Rotación automática</label>
@@ -85,6 +86,8 @@
   <div class="big" id="rt">0</div><span style="color:var(--mut);font-size:12px">bancos de sangre autorizados</span>
   <div class="cards" id="cards"></div>
   <div id="rinfo" style="font-size:12px;color:var(--mut);line-height:1.6"></div>
+  <label class="l" id="plT">Provincias</label>
+  <div id="plist" style="font-size:12px;line-height:1.55"></div>
   <label class="l">Bancos en esta región</label>
   <div id="blist"></div>
 </div>
@@ -174,7 +177,7 @@ const URL_TERR = (z,x,y) => 'https://s3.amazonaws.com/elevation-tiles-prod/terra
 const ESRI = (s,z,x,y) => 'https://server.arcgisonline.com/ArcGIS/rest/services/'+s+'/MapServer/tile/'+z+'/'+y+'/'+x;
 
 /* ---------- estado ---------- */
-const S = { idx:0, mode:'sat', exag:2.5, roads:true, prov:true, banks:true, contrast:false, play:false, T:null, token:0 };
+const S = { idx:0, mode:'sat', exag:2.5, roads:true, prov:true, banks:true, labels:true, contrast:false, play:false, T:null, token:0 };
 let terrain = null;      // { mesh, geo, group, data }
 const root = new THREE.Group(); scene.add(root);
 const markers = new THREE.Group(); root.add(markers);
@@ -321,6 +324,57 @@ function applyHeights(T){
   });
 }
 
+/* ---------- nombres de provincias (o de regiones en la vista del Perú) ---------- */
+const labelsG = new THREE.Group(); root.add(labelsG);
+function pipJS(x,y,ring){ let ins=false; for(let i=0,j=ring.length-1;i<ring.length;j=i++){ const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1]; if(((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) ins=!ins; } return ins; }
+function labelPoint(rings){
+  let best = rings[0], ba = -1;
+  rings.forEach(r => { const b = bboxOf([r]), a = (b[2]-b[0])*(b[3]-b[1]); if (a > ba) { ba = a; best = r; } });
+  let A = 0, cx = 0, cy = 0;
+  for (let i=0;i<best.length;i++){ const j=(i+1)%best.length, f = best[i][0]*best[j][1]-best[j][0]*best[i][1]; A += f; cx += (best[i][0]+best[j][0])*f; cy += (best[i][1]+best[j][1])*f; }
+  let p = Math.abs(A) > 1e-12 ? [cx/(3*A), cy/(3*A)] : best[0];
+  if (!pipJS(p[0], p[1], best)) {
+    const b = bboxOf([best]); let bd = 1e9, bp = best[0];
+    for (let i=0;i<=16;i++) for (let j=0;j<=16;j++) { const x = b[0]+(b[2]-b[0])*i/16, y = b[1]+(b[3]-b[1])*j/16; if (pipJS(x,y,best)) { const d = (x-p[0])**2 + (y-p[1])**2; if (d < bd) { bd = d; bp = [x,y]; } } }
+    p = bp;
+  }
+  return p;
+}
+function makeLabel(text, sub){
+  const c = document.createElement('canvas'); c.width = 640; c.height = 140; const x = c.getContext('2d');
+  let fs = 58; x.font = '700 ' + fs + 'px "Segoe UI",Arial,sans-serif';
+  while (x.measureText(text).width > 590 && fs > 26) { fs -= 3; x.font = '700 ' + fs + 'px "Segoe UI",Arial,sans-serif'; }
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.lineJoin = 'round'; x.lineWidth = 13; x.strokeStyle = 'rgba(8,12,20,.92)'; x.strokeText(text, 320, sub ? 52 : 70);
+  x.fillStyle = '#ffffff'; x.fillText(text, 320, sub ? 52 : 70);
+  if (sub) { x.font = '600 38px "Segoe UI",Arial,sans-serif'; x.lineWidth = 9; x.strokeStyle = 'rgba(8,12,20,.92)'; x.strokeText(sub, 320, 110); x.fillStyle = '#ffd166'; x.fillText(sub, 320, 110); }
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+  sp.renderOrder = 20; sp.userData.aspect = c.width / c.height; return sp;
+}
+const provBankCount = {};
+function buildLabels(T){
+  labelsG.children.forEach(s => { s.material.map.dispose(); s.material.dispose(); }); labelsG.clear();
+  if (!S.labels) return;
+  const D = T.D, slide = D.slide, e = S.exag/1000;
+  const items = slide.peru ? DEP.map(d => ({ name: nice(d.n), rings: d.c, n: BANKS.filter(b => b.r === d.n).length }))
+                           : PROV.filter(p => p.d === slide.key).map(p => ({ name: nice(p.n), rings: p.c, n: provBankCount[slide.key + '|' + p.n] || 0 }));
+  const hgt = D.span * (slide.peru ? .026 : .033);
+  items.forEach(it => {
+    const p = labelPoint(it.rings); const X = wx(D, px(p[0], D.z)), Z = wz(D, py(p[1], D.z));
+    const h = heightAt(D, p[0], p[1]) * e;
+    const sp = makeLabel(it.name, it.n ? it.n + (it.n === 1 ? ' banco' : ' bancos') : '');
+    sp.scale.set(hgt * sp.userData.aspect, hgt, 1); sp.position.set(X, h + hgt * .9, Z); labelsG.add(sp);
+  });
+}
+function countProvBanks(){
+  BANKS.forEach(b => {
+    for (const p of PROV) { if (p.d !== b.r) continue; if (p.c.some(r => pipJS(b.o, b.a, r))) { const k = p.d + '|' + p.n; provBankCount[k] = (provBankCount[k] || 0) + 1; return; } }
+    let bd = 1e9, bk = null; for (const p of PROV) { if (p.d !== b.r) continue; const c = labelPoint(p.c); const d = (c[0]-b.o)**2 + (c[1]-b.a)**2; if (d < bd) { bd = d; bk = p.d + '|' + p.n; } } if (bk) provBankCount[bk] = (provBankCount[bk] || 0) + 1;
+  });
+}
+countProvBanks();
+
 /* ---------- marcadores ---------- */
 const hits = [];
 function buildMarkers(T){
@@ -369,6 +423,10 @@ function panel(slide, D){
   const st = D.stat, nprov = slide.peru ? PROV.length : PROV.filter(p => p.d === slide.key).length;
   const kmr = D.roads ? D.roads.length : 0;
   $('rinfo').innerHTML = 'Provincias: <b style="color:#fff">'+nprov+'</b><br>Cota máxima: <b style="color:#fff">'+Math.round(st.max).toLocaleString('es-PE')+' m</b><br>Cota mínima (depresión): <b style="color:#fff">'+Math.round(st.min).toLocaleString('es-PE')+' m</b><br>Cota media: <b style="color:#fff">'+Math.round(st.mean).toLocaleString('es-PE')+' m</b>' + (kmr ? '<br>Tramos de carretera nacional: <b style="color:#fff">'+kmr+'</b>' : '');
+  const pl = slide.peru ? DEP.map(d => ({ n: nice(d.n), c: BANKS.filter(b => b.r === d.n).length })) : PROV.filter(p => p.d === slide.key).map(p => ({ n: nice(p.n), c: provBankCount[slide.key + '|' + p.n] || 0 }));
+  pl.sort((a,b) => b.c - a.c || a.n.localeCompare(b.n));
+  $('plT').textContent = slide.peru ? 'Regiones (' + pl.length + ')' : 'Provincias de ' + slide.name + ' (' + pl.length + ')';
+  $('plist').innerHTML = pl.map(p => '<span style="display:inline-block;margin:2px 5px 2px 0;padding:2px 8px;border-radius:999px;background:#0b111b;border:1px solid var(--line);' + (p.c ? '' : 'color:var(--mut)') + '">' + p.n + (p.c ? ' <b style="color:#ffd166">' + p.c + '</b>' : '') + '</span>').join('');
   const list = slide.banks.slice().sort((a,b) => a.t.localeCompare(b.t) || a.n.localeCompare(b.n));
   $('blist').innerHTML = list.length > 220 ? '<div style="cursor:default;color:var(--mut)">Lista completa disponible al elegir una región más pequeña; pase el cursor sobre los puntos del mapa.</div>' : list.map(b => '<div data-n="'+encodeURIComponent(b.n)+'"><i class="dot '+(b.t==='II'?'sq':'')+'" style="background:'+TCOL[b.t]+'"></i>'+b.n.replace(/</g,'&lt;').slice(0,70)+' <span style="color:var(--mut)">· '+nice(b.d)+'</span></div>').join('');
   $('lgT').textContent = S.mode === 'relieve' ? (S.contrast ? 'Relieve · contraste regional' : 'Elevación (m s. n. m.)') : 'Elevación (leyenda en modo Relieve)';
@@ -400,11 +458,11 @@ async function go(i, immediate){
   if (!S.manual) { S.exag = slide.peru ? 8 : 3; $('exag').value = S.exag; $('exv').textContent = S.exag.toFixed(1) + '×'; }
   const D = await build(slide); if (!D) return;
   if (terrain) { root.remove(terrain.group); terrain.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material.map) o.material.map.dispose(); }); }
-  terrain = makeTerrain(D); root.add(terrain.group); applyHeights(terrain); buildMarkers(terrain);
+  terrain = makeTerrain(D); root.add(terrain.group); applyHeights(terrain); buildMarkers(terrain); buildLabels(terrain);
   panel(slide, D); frame(D, immediate); $('load').classList.remove('on');
 }
 async function recolor(){ if (!terrain) return; const D = terrain.D; if (!S.roads || D.roads.length || D.slide.peru) {} else D.roads = await loadRoads(D.slide.key); const t = paintTexture(D); terrain.mat.map.dispose(); terrain.mat.map = t; terrain.mat.needsUpdate = true; }
-function reheight(){ if (!terrain) return; applyHeights(terrain); buildMarkers(terrain); }
+function reheight(){ if (!terrain) return; applyHeights(terrain); buildMarkers(terrain); buildLabels(terrain); }
 
 /* ---------- eventos ---------- */
 $('prev').onclick = () => go(S.idx-1); $('next').onclick = () => go(S.idx+1);
@@ -414,6 +472,7 @@ $('exag').oninput = e => { S.manual = true; S.exag = +e.target.value; $('exv').t
 $('kRoads').onchange = e => { S.roads = e.target.checked; recolor(); };
 $('kProv').onchange = e => { S.prov = e.target.checked; recolor(); };
 $('kBanks').onchange = e => { S.banks = e.target.checked; buildMarkers(terrain); };
+$('kLabels').onchange = e => { S.labels = e.target.checked; if (terrain) buildLabels(terrain); };
 $('kContrast').onchange = e => { S.contrast = e.target.checked; recolor(); if (terrain) panel(terrain.D.slide, terrain.D); };
 $('kRot').onchange = e => { controls.autoRotate = e.target.checked; controls.autoRotateSpeed = .9; };
 let timer = null;
