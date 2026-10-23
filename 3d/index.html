@@ -93,7 +93,7 @@
   <div id="lgT" style="font-weight:600">Elevación</div>
   <div id="ramp"></div>
   <div style="display:flex;justify-content:space-between;color:var(--mut)"><span id="lgA">0 m</span><span id="lgB">5 500 m</span></div>
-  <div style="margin-top:8px;color:var(--mut)"><span class="dot" style="background:#ff7a1a"></span>Carretera nacional &nbsp;<span class="dot" style="background:#ffd166"></span>Primaria</div>
+  <div style="margin-top:8px;color:var(--mut)">Red vial: capa de carreteras sobre el relieve · líneas blancas discontinuas: límites provinciales</div>
 </div>
 
 <div id="bar" class="panel">
@@ -113,9 +113,9 @@
     <div class="card"><b id="eN">506</b><span>bancos AUTORIZADOS</span></div>
     <div class="card"><b>25</b><span>regiones en 3D</span></div>
     <div class="card"><b id="eP">196</b><span>provincias delimitadas</span></div>
-    <div class="card"><b id="eR">—</b><span>tramos de carretera</span></div>
+    <div class="card"><b>4</b><span>tipos de banco (I-A, I-B, I-C, II)</span></div>
   </div>
-  <p>Cada región se muestra por separado con su relieve real (elevaciones y depresiones), la red de carreteras nacionales, la división provincial y la ubicación de cada banco de sangre por tipo (I-A, I-B, I-C y II).</p>
+  <p>Cada región se muestra por separado con su relieve real (elevaciones y depresiones), la red vial, la división provincial y la ubicación de cada banco de sangre por tipo (I-A, I-B, I-C y II).</p>
   <p style="font-size:12px">Fuentes: Matriz General de Autorización Sanitaria DIBAN (estado AUTORIZADO) · relieve: AWS Terrain Tiles · imágenes y vías: Esri · carreteras: OpenStreetMap · límites: INEI (simplificado). Ubicaciones aproximadas al distrito declarado.</p>
   <div class="row" style="justify-content:center;margin-top:16px"><button class="btn" id="again">Volver al inicio</button><button class="btn g" id="closeEnd">Seguir explorando</button></div>
 </div></div>
@@ -368,7 +368,7 @@ function panel(slide, D){
   $('cards').innerHTML = ['IA','IB','IC','II'].map(t => '<div class="card"><b style="color:'+TCOL[t]+'">'+cnt(t)+'</b><span><i class="dot '+(t==='II'?'sq':'')+'" style="background:'+TCOL[t]+'"></i>'+TLAB[t]+'</span></div>').join('');
   const st = D.stat, nprov = slide.peru ? PROV.length : PROV.filter(p => p.d === slide.key).length;
   const kmr = D.roads ? D.roads.length : 0;
-  $('rinfo').innerHTML = 'Provincias: <b style="color:#fff">'+nprov+'</b><br>Cota máxima: <b style="color:#fff">'+Math.round(st.max).toLocaleString('es-PE')+' m</b><br>Cota mínima (depresión): <b style="color:#fff">'+Math.round(st.min).toLocaleString('es-PE')+' m</b><br>Cota media: <b style="color:#fff">'+Math.round(st.mean).toLocaleString('es-PE')+' m</b>' + (slide.peru ? '' : '<br>Tramos de carretera nacional: <b style="color:#fff">'+kmr+'</b>');
+  $('rinfo').innerHTML = 'Provincias: <b style="color:#fff">'+nprov+'</b><br>Cota máxima: <b style="color:#fff">'+Math.round(st.max).toLocaleString('es-PE')+' m</b><br>Cota mínima (depresión): <b style="color:#fff">'+Math.round(st.min).toLocaleString('es-PE')+' m</b><br>Cota media: <b style="color:#fff">'+Math.round(st.mean).toLocaleString('es-PE')+' m</b>' + (kmr ? '<br>Tramos de carretera nacional: <b style="color:#fff">'+kmr+'</b>' : '');
   const list = slide.banks.slice().sort((a,b) => a.t.localeCompare(b.t) || a.n.localeCompare(b.n));
   $('blist').innerHTML = list.length > 220 ? '<div style="cursor:default;color:var(--mut)">Lista completa disponible al elegir una región más pequeña; pase el cursor sobre los puntos del mapa.</div>' : list.map(b => '<div data-n="'+encodeURIComponent(b.n)+'"><i class="dot '+(b.t==='II'?'sq':'')+'" style="background:'+TCOL[b.t]+'"></i>'+b.n.replace(/</g,'&lt;').slice(0,70)+' <span style="color:var(--mut)">· '+nice(b.d)+'</span></div>').join('');
   $('lgT').textContent = S.mode === 'relieve' ? (S.contrast ? 'Relieve · contraste regional' : 'Elevación (m s. n. m.)') : 'Elevación (leyenda en modo Relieve)';
@@ -431,7 +431,7 @@ function tick(){
 }
 tick();
 // suma de tramos de carretera para el cierre
-(async () => { let n = 0; for (const s of SLIDES) { const r = await loadRoads(s.key); n += r.length; } $('eR').textContent = n.toLocaleString('es-PE'); })();
+
 await go(0, true);
 window.__app = { go, S, renderer, scene, camera, controls, snap: () => { renderer.render(scene, camera); return canvas.toDataURL('image/jpeg', .9); } };
 </script>
