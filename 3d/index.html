@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bancos de sangre autorizados · Presentación 3D por regiones</title>
+<style>
+  :root{--bg:#0e1420;--panel:rgba(18,26,40,.88);--line:rgba(255,255,255,.12);--txt:#e8edf5;--mut:#9aa7bb;--acc:#e2536b}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:"Segoe UI",Inter,Helvetica,Arial,sans-serif;overflow:hidden}
+  #c{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .panel{position:fixed;background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  #left{left:14px;top:14px;width:300px;max-height:calc(100vh - 100px);overflow:auto}
+  #left h1{font-size:15px;margin:0 0 2px;letter-spacing:.01em}
+  #left .sub{font-size:11.5px;color:var(--mut);margin-bottom:12px;line-height:1.4}
+  label.l{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin:12px 0 5px}
+  select{width:100%;background:#0b111b;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button{flex:1;background:#0b111b;color:var(--mut);border:1px solid var(--line);padding:7px 4px;font-size:12px;border-radius:7px;cursor:pointer}
+  .seg button.on{background:#1d2b44;color:#fff;border-color:#4a6bb0}
+  .chk{display:flex;align-items:center;gap:7px;font-size:12.5px;margin:5px 0;cursor:pointer}
+  input[type=range]{width:100%}
+  .btn{background:var(--acc);border:0;color:#fff;padding:9px 12px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px}
+  .btn.g{background:#1d2b44;border:1px solid var(--line);font-weight:500}
+  #right{right:14px;top:14px;width:310px;max-height:calc(100vh - 100px);overflow:auto}
+  #right h2{margin:0 0 2px;font-size:22px;letter-spacing:-.01em}
+  #right .kick{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+  .big{font-size:34px;font-weight:700;line-height:1}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+  .card{background:#0b111b;border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+  .card b{display:block;font-size:18px}.card span{font-size:10.5px;color:var(--mut)}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+  .sq{border-radius:2px}
+  #blist{margin-top:8px;font-size:11.5px}
+  #blist div{padding:3px 0;border-bottom:1px solid var(--line);cursor:pointer;line-height:1.3}
+  #blist div:hover{color:#fff;background:rgba(255,255,255,.05)}
+  #bar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;padding:8px 12px}
+  #bar .title{min-width:210px;text-align:center;font-weight:600;font-size:14px}
+  #legend{left:14px;bottom:16px;width:300px;padding:10px 14px;font-size:11px}
+  #ramp{height:12px;border-radius:6px;margin:6px 0 3px}
+  #tip{position:fixed;pointer-events:none;background:#0b111bf2;border:1px solid var(--line);padding:7px 10px;border-radius:8px;font-size:12px;max-width:280px;display:none;z-index:9}
+  #load{position:fixed;inset:0;display:none;place-items:center;background:rgba(8,12,20,.55);z-index:20;font-size:15px}
+  #load.on{display:grid}
+  #end{position:fixed;inset:0;display:none;place-items:center;z-index:15;background:radial-gradient(ellipse at center,rgba(8,12,20,.55),rgba(8,12,20,.9))}
+  #end.on{display:grid}
+  #end .box{max-width:760px;padding:34px 38px;text-align:center}
+  #end h2{font-size:30px;margin:0 0 6px}
+  #end .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:22px 0}
+  #end .grid .card b{font-size:26px}
+  #end p{color:var(--mut);font-size:13.5px;line-height:1.55;margin:8px 0}
+  .hint{position:fixed;right:20px;bottom:20px;font-size:11px;color:var(--mut);text-align:right;line-height:1.5}
+  @media (max-width:900px){#left{width:240px}#right{display:none}#legend{display:none}.hint{display:none}#bar .title{min-width:130px}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="left" class="panel">
+  <h1>Bancos de sangre autorizados</h1>
+  <div class="sub">Presentación 3D por regiones: relieve, depresiones, carreteras y ubicación de cada banco · Matriz de Autorización Sanitaria DIBAN (estado AUTORIZADO)</div>
+  <label class="l">Región</label>
+  <select id="sel"></select>
+  <label class="l">Superficie</label>
+  <div class="row seg" id="seg">
+    <button data-m="sat" class="on">Satélite</button><button data-m="relieve">Relieve</button><button data-m="calles">Calles</button>
+  </div>
+  <label class="l">Exageración vertical: <b id="exv">2.5×</b></label>
+  <input id="exag" type="range" min="1" max="10" step="0.5" value="2.5">
+  <label class="l">Capas</label>
+  <label class="chk"><input type="checkbox" id="kRoads" checked> Carreteras principales</label>
+  <label class="chk"><input type="checkbox" id="kProv" checked> División provincial</label>
+  <label class="chk"><input type="checkbox" id="kBanks" checked> Bancos de sangre</label>
+  <label class="chk"><input type="checkbox" id="kContrast"> Contraste regional (relieve)</label>
+  <label class="chk"><input type="checkbox" id="kRot"> Rotación automática</label>
+  <div class="row" style="margin-top:12px">
+    <button class="btn" id="play">▶ Presentación</button>
+    <button class="btn g" id="fs">Pantalla completa</button>
+  </div>
+</div>
+
+<div id="right" class="panel">
+  <div class="kick" id="rk">Perú</div>
+  <h2 id="rn">—</h2>
+  <div class="big" id="rt">0</div><span style="color:var(--mut);font-size:12px">bancos de sangre autorizados</span>
+  <div class="cards" id="cards"></div>
+  <div id="rinfo" style="font-size:12px;color:var(--mut);line-height:1.6"></div>
+  <label class="l">Bancos en esta región</label>
+  <div id="blist"></div>
+</div>
+
+<div id="legend" class="panel">
+  <div id="lgT" style="font-weight:600">Elevación</div>
+  <div id="ramp"></div>
+  <div style="display:flex;justify-content:space-between;color:var(--mut)"><span id="lgA">0 m</span><span id="lgB">5 500 m</span></div>
+  <div style="margin-top:8px;color:var(--mut)"><span class="dot" style="background:#ff7a1a"></span>Carretera nacional &nbsp;<span class="dot" style="background:#ffd166"></span>Primaria</div>
+</div>
+
+<div id="bar" class="panel">
+  <button class="btn g" id="prev">◀</button>
+  <div class="title" id="ttl">Perú</div>
+  <button class="btn g" id="next">▶</button>
+  <span id="cnt" style="color:var(--mut);font-size:12px"></span>
+</div>
+<div class="hint">Arrastrar: girar · Rueda: acercar · Clic derecho: mover<br>← → cambiar región · Espacio: presentación · 1 2 3: superficie</div>
+<div id="tip"></div>
+<div id="load">Cargando relieve y carreteras…</div>
+
+<div id="end"><div class="panel box">
+  <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)">Finalización del trabajo</div>
+  <h2>Geolocalización de bancos de sangre autorizados</h2>
+  <div class="grid">
+    <div class="card"><b id="eN">506</b><span>bancos AUTORIZADOS</span></div>
+    <div class="card"><b>25</b><span>regiones en 3D</span></div>
+    <div class="card"><b id="eP">196</b><span>provincias delimitadas</span></div>
+    <div class="card"><b id="eR">—</b><span>tramos de carretera</span></div>
+  </div>
+  <p>Cada región se muestra por separado con su relieve real (elevaciones y depresiones), la red de carreteras nacionales, la división provincial y la ubicación de cada banco de sangre por tipo (I-A, I-B, I-C y II).</p>
+  <p style="font-size:12px">Fuentes: Matriz General de Autorización Sanitaria DIBAN (estado AUTORIZADO) · relieve: AWS Terrain Tiles · imágenes y vías: Esri · carreteras: OpenStreetMap · límites: INEI (simplificado). Ubicaciones aproximadas al distrito declarado.</p>
+  <div class="row" style="justify-content:center;margin-top:16px"><button class="btn" id="again">Volver al inicio</button><button class="btn g" id="closeEnd">Seguir explorando</button></div>
+</div></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const TCOL = { IA:'#e2536b', IB:'#2e9cc4', IC:'#e0a526', II:'#3fbf6e' };
+const TLAB = { IA:'Tipo I-A', IB:'Tipo I-B', IC:'Tipo I-C', II:'Tipo II' };
+const ACC = { 'ANCASH':'Áncash','APURIMAC':'Apurímac','HUANUCO':'Huánuco','JUNIN':'Junín','SAN MARTIN':'San Martín','MADRE DE DIOS':'Madre de Dios' };
+const nice = s => ACC[s] || s.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+const $ = id => document.getElementById(id);
+
+/* ---------- escena ---------- */
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, preserveDrawingBuffer:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0e1420);
+scene.fog = null;
+const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 20000);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = .08; controls.maxPolarAngle = Math.PI * .495;
+scene.add(new THREE.HemisphereLight(0xdfe9ff, 0x2a3140, 1.15));
+const sun = new THREE.DirectionalLight(0xfff3dd, 2.1); sun.position.set(-1, 1.35, -.6); scene.add(sun);
+const fill = new THREE.DirectionalLight(0x9db8ff, .45); fill.position.set(1, .6, 1); scene.add(fill);
+function resize(){ const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+
+/* ---------- datos ---------- */
+const [DEP, PROV, BANKS] = await Promise.all(['regiones','provincias','bancos'].map(n => fetch('data/' + n + '.json').then(r => r.json())));
+const roadCache = {};
+async function loadRoads(name){
+  if (roadCache[name]) return roadCache[name];
+  try { const r = await fetch('data/roads/roads_' + name.replace(/ /g,'_') + '.json'); if (!r.ok) return []; roadCache[name] = await r.json(); } catch(e){ return []; }
+  return roadCache[name];
+}
+function bboxOf(rings){ let a=999,b=-999,c=999,d=-999; rings.forEach(r => r.forEach(p => { if(p[0]<a)a=p[0]; if(p[0]>b)b=p[0]; if(p[1]<c)c=p[1]; if(p[1]>d)d=p[1]; })); return [a,c,b,d]; }
+const SLIDES = DEP.map(d => ({ key:d.n, name:nice(d.n), rings:d.c, bb:bboxOf(d.c), banks:BANKS.filter(b => b.r === d.n), peru:false }))
+  .sort((a,b) => (b.bb[1]+b.bb[3]) - (a.bb[1]+a.bb[3]));
+const PERU = { key:'PERU', name:'Perú', rings:DEP.flatMap(d => d.c), bb:[-81.4,-18.4,-68.6,-0.03], banks:BANKS, peru:true };
+const ALL = [PERU, ...SLIDES];       // 0 = Perú, 1..25 = regiones, 26 = cierre
+const END = ALL.length;
+$('sel').innerHTML = ALL.map((s,i) => '<option value="'+i+'">'+(i? i+'. ':'')+s.name+'</option>').join('');
+$('eP').textContent = PROV.length;
+$('eN').textContent = BANKS.length;
+
+/* ---------- mercator / tiles ---------- */
+const PI = Math.PI;
+const px = (lon,z) => (lon + 180) / 360 * Math.pow(2,z) * 256;
+const py = (lat,z) => (1 - Math.log(Math.tan(lat*PI/180) + 1/Math.cos(lat*PI/180)) / PI) / 2 * Math.pow(2,z) * 256;
+const loadImg = u => new Promise(res => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => res(null); i.src = u; });
+const URL_TERR = (z,x,y) => 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/'+z+'/'+x+'/'+y+'.png';
+const ESRI = (s,z,x,y) => 'https://server.arcgisonline.com/ArcGIS/rest/services/'+s+'/MapServer/tile/'+z+'/'+y+'/'+x;
+
+/* ---------- estado ---------- */
+const S = { idx:0, mode:'sat', exag:2.5, roads:true, prov:true, banks:true, contrast:false, play:false, T:null, token:0 };
+let terrain = null;      // { mesh, geo, group, data }
+const root = new THREE.Group(); scene.add(root);
+const markers = new THREE.Group(); root.add(markers);
+
+/* ---------- paleta hipsométrica ---------- */
+const STOPS = [[-100,[43,108,176]],[0,[31,122,77]],[200,[63,155,91]],[500,[138,180,106]],[1000,[205,208,138]],[1500,[217,191,122]],[2500,[185,138,82]],[3500,[142,106,73]],[4500,[167,157,150]],[5600,[255,255,255]]];
+function hypso(e){ if (e <= STOPS[0][0]) return STOPS[0][1]; for (let i=1;i<STOPS.length;i++){ if (e <= STOPS[i][0]) { const a=STOPS[i-1], b=STOPS[i], t=(e-a[0])/(b[0]-a[0]); return [a[1][0]+(b[1][0]-a[1][0])*t, a[1][1]+(b[1][1]-a[1][1])*t, a[1][2]+(b[1][2]-a[1][2])*t]; } } return STOPS[STOPS.length-1][1]; }
+$('ramp').style.background = 'linear-gradient(90deg,' + STOPS.map(s => 'rgb(' + s[1].map(Math.round).join(',') + ')').join(',') + ')';
+
+/* ---------- construir relieve de una región ---------- */
+async function build(slide){
+  const my = ++S.token;
+  $('load').classList.add('on');
+  // zoom: el mayor con <= 64 teselas
+  const pad = 0.03, dx = (slide.bb[2]-slide.bb[0])*pad, dy = (slide.bb[3]-slide.bb[1])*pad;
+  const bb = [slide.bb[0]-dx, slide.bb[1]-dy, slide.bb[2]+dx, slide.bb[3]+dy];
+  let z = 4, tx0, ty0, tx1, ty1;
+  for (let zz = 4; zz <= 11; zz++) {
+    const a = Math.floor(px(bb[0],zz)/256), b = Math.floor(px(bb[2],zz)/256), c = Math.floor(py(bb[3],zz)/256), d = Math.floor(py(bb[1],zz)/256);
+    if ((b-a+1)*(d-c+1) <= 64) { z = zz; tx0=a; tx1=b; ty0=c; ty1=d; } else break;
+  }
+  const W = (tx1-tx0+1)*256, H = (ty1-ty0+1)*256;
+  const jobs = [];
+  for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+    jobs.push(Promise.all([loadImg(URL_TERR(z,tx,ty)), loadImg(ESRI('World_Imagery',z,tx,ty)), loadImg(ESRI('World_Street_Map',z,tx,ty)), loadImg(ESRI('Reference/World_Transportation',z,tx,ty))]).then(r => ({tx,ty,im:r})));
+  }
+  const tiles = await Promise.all(jobs);
+  if (my !== S.token) return null;
+  // elevación
+  const ec = document.createElement('canvas'); ec.width = W; ec.height = H; const ex = ec.getContext('2d', { willReadFrequently:true });
+  tiles.forEach(t => { if (t.im[0]) ex.drawImage(t.im[0], (t.tx-tx0)*256, (t.ty-ty0)*256); });
+  const id = ex.getImageData(0,0,W,H).data, elev = new Float32Array(W*H);
+  for (let i=0;i<W*H;i++) elev[i] = (id[i*4]*256 + id[i*4+1] + id[i*4+2]/256) - 32768;
+  const layer = n => { const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'); tiles.forEach(t => { if (t.im[n]) x.drawImage(t.im[n], (t.tx-tx0)*256, (t.ty-ty0)*256); }); return c; };
+  const D = { slide, z, tx0, ty0, W, H, bb, elev, imagery: layer(1), streets: layer(2), transport: layer(3) };
+  // geometría en km (x este, z sur)
+  const lat0 = (bb[1]+bb[3])/2, mpp = 40075016.686/(256*Math.pow(2,z)) * Math.cos(lat0*PI/180) / 1000;
+  const pxMin = px(bb[0],z), pxMax = px(bb[2],z), pyMin = py(bb[3],z), pyMax = py(bb[1],z);
+  D.k = mpp; D.pxc = (pxMin+pxMax)/2; D.pyc = (pyMin+pyMax)/2; D.pxMin = pxMin; D.pxMax = pxMax; D.pyMin = pyMin; D.pyMax = pyMax;
+  D.wkm = (pxMax-pxMin)*mpp; D.hkm = (pyMax-pyMin)*mpp; D.span = Math.max(D.wkm, D.hkm);
+  const NX = Math.min(300, Math.max(60, Math.round(D.wkm / D.span * 300))), NY = Math.min(300, Math.max(60, Math.round(D.hkm / D.span * 300)));
+  D.NX = NX; D.NY = NY;
+  // alturas por vértice (m)
+  D.hv = new Float32Array(NX*NY);
+  for (let j=0;j<NY;j++) for (let i=0;i<NX;i++) D.hv[j*NX+i] = sample(D, pxMin + (pxMax-pxMin)*i/(NX-1), pyMin + (pyMax-pyMin)*j/(NY-1));
+  // máscara de región para estadísticas
+  const mc = document.createElement('canvas'); mc.width = NX; mc.height = NY; const mx = mc.getContext('2d', { willReadFrequently:true });
+  mx.fillStyle = '#fff'; mx.beginPath();
+  slide.rings.forEach(r => r.forEach((p,i) => { const X = (px(p[0],z)-pxMin)/(pxMax-pxMin)*(NX-1), Y = (py(p[1],z)-pyMin)/(pyMax-pyMin)*(NY-1); i? mx.lineTo(X,Y) : mx.moveTo(X,Y); }));
+  mx.fill(); const md = mx.getImageData(0,0,NX,NY).data;
+  let mn = 1e9, mxE = -1e9, sum = 0, cnt = 0, imin = 0, imax = 0;
+  for (let i=0;i<NX*NY;i++) if (md[i*4+3] > 128) { const v = D.hv[i]; if (v<mn){mn=v;imin=i;} if (v>mxE){mxE=v;imax=i;} sum += v; cnt++; }
+  D.stat = { min: mn, max: mxE, mean: sum/Math.max(cnt,1), imin, imax };
+  D.roads = (!slide.peru && S.roads) ? await loadRoads(slide.key) : [];
+  if (my !== S.token) return null;
+  return D;
+}
+function sample(D, ppx, ppy){
+  const x = Math.min(D.W-1.001, Math.max(0, ppx - D.tx0*256)), y = Math.min(D.H-1.001, Math.max(0, ppy - D.ty0*256));
+  const x0 = Math.floor(x), y0 = Math.floor(y), fx = x-x0, fy = y-y0, W = D.W, e = D.elev;
+  return e[y0*W+x0]*(1-fx)*(1-fy) + e[y0*W+x0+1]*fx*(1-fy) + e[(y0+1)*W+x0]*(1-fx)*fy + e[(y0+1)*W+x0+1]*fx*fy;
+}
+const wx = (D,p) => (p - D.pxc) * D.k, wz = (D,p) => (p - D.pyc) * D.k;
+function heightAt(D, lon, lat){ return sample(D, px(lon,D.z), py(lat,D.z)); }
+
+/* ---------- textura ---------- */
+function paintTexture(D){
+  const { W, H, slide } = D, z = D.z;
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  x.save(); x.beginPath();
+  slide.rings.forEach(r => r.forEach((p,i) => { const X = px(p[0],z) - D.tx0*256, Y = py(p[1],z) - D.ty0*256; i ? x.lineTo(X,Y) : x.moveTo(X,Y); }));
+  x.clip();
+  if (S.mode === 'sat') { x.drawImage(D.imagery,0,0); if (S.roads) { x.globalAlpha = .9; x.drawImage(D.transport,0,0); x.globalAlpha = 1; } }
+  else if (S.mode === 'calles') { x.drawImage(D.streets,0,0); }
+  else {
+    const t = document.createElement('canvas'); t.width = W; t.height = H; const tc = t.getContext('2d'); const img = tc.createImageData(W,H); const e = D.elev;
+    const lo = S.contrast ? D.stat.min : 0, hi = S.contrast ? D.stat.max : 5600;
+    for (let i=0;i<W*H;i++){ const v = S.contrast ? (e[i]-lo)/Math.max(hi-lo,1)*5600 : e[i]; const col = hypso(v); img.data[i*4]=col[0]; img.data[i*4+1]=col[1]; img.data[i*4+2]=col[2]; img.data[i*4+3]=255; }
+    tc.putImageData(img,0,0); x.drawImage(t,0,0);
+    if (S.roads) { x.globalAlpha = .85; x.drawImage(D.transport,0,0); x.globalAlpha = 1; }
+  }
+  const lw = Math.max(1.2, W/700);
+  const path = (pts) => { x.beginPath(); pts.forEach((p,i) => { const X = px(p[0],z)-D.tx0*256, Y = py(p[1],z)-D.ty0*256; i ? x.lineTo(X,Y) : x.moveTo(X,Y); }); };
+  if (S.prov && !slide.peru) {
+    x.strokeStyle = 'rgba(255,255,255,.85)'; x.lineWidth = lw*1.1; x.setLineDash([lw*5, lw*3]);
+    PROV.filter(p => p.d === slide.key).forEach(p => p.c.forEach(r => { path(r); x.stroke(); }));
+    x.setLineDash([]);
+  }
+  if (S.roads && !slide.peru && D.roads.length) {
+    x.lineCap = 'round'; x.lineJoin = 'round';
+    D.roads.forEach(([cl,pts]) => { path(pts); x.strokeStyle = 'rgba(20,12,6,.8)'; x.lineWidth = lw*(cl?2.6:3.6); x.stroke(); });
+    D.roads.forEach(([cl,pts]) => { path(pts); x.strokeStyle = cl ? '#ffd166' : '#ff7a1a'; x.lineWidth = lw*(cl?1.4:2.2); x.stroke(); });
+  }
+  x.restore();
+  x.strokeStyle = '#ffffff'; x.lineWidth = lw*2.4;
+  slide.rings.forEach(r => { path(r); x.stroke(); });
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); tex.generateMipmaps = true;
+  return tex;
+}
+
+/* ---------- malla ---------- */
+function makeTerrain(D){
+  const { NX, NY } = D;
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(NX*NY*3), uv = new Float32Array(NX*NY*2), idx = [];
+  for (let j=0;j<NY;j++) for (let i=0;i<NX;i++) {
+    const ppx = D.pxMin + (D.pxMax-D.pxMin)*i/(NX-1), ppy = D.pyMin + (D.pyMax-D.pyMin)*j/(NY-1), k = j*NX+i;
+    pos[k*3] = wx(D,ppx); pos[k*3+2] = wz(D,ppy);
+    uv[k*2] = (ppx - D.tx0*256)/D.W; uv[k*2+1] = 1 - (ppy - D.ty0*256)/D.H;
+  }
+  for (let j=0;j<NY-1;j++) for (let i=0;i<NX-1;i++) { const a=j*NX+i, b=a+1, c=a+NX, d=c+1; idx.push(a,c,b, b,c,d); }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv,2)); geo.setIndex(idx);
+  const tex = paintTexture(D);
+  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: .95, metalness: 0, side: THREE.DoubleSide, alphaTest: .5, transparent: false });
+  const mesh = new THREE.Mesh(geo, mat);
+  const g = new THREE.Group(); g.add(mesh);
+  // base y paredes
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x1b2433, roughness: .9, side: THREE.DoubleSide });
+  const capMat = new THREE.MeshStandardMaterial({ color: 0x141b28, roughness: 1, side: THREE.DoubleSide });
+  const walls = [];
+  D.slide.rings.forEach(r => {
+    const step = Math.max(1, Math.floor(r.length / 700)), pts = []; for (let i=0;i<r.length;i+=step) pts.push(r[i]);
+    if (pts.length < 3) return;
+    const P = pts.map(p => ({ x: wx(D,px(p[0],D.z)), z: wz(D,py(p[1],D.z)), e: heightAt(D,p[0],p[1]) }));
+    const wg = new THREE.BufferGeometry(), wp = new Float32Array(P.length*6), wi = [];
+    for (let i=0;i<P.length;i++){ const n=(i+1)%P.length; wi.push(i*2,i*2+1,n*2, n*2,i*2+1,n*2+1); }
+    wg.setAttribute('position', new THREE.BufferAttribute(wp,3)); wg.setIndex(wi);
+    const wm = new THREE.Mesh(wg, wallMat); g.add(wm);
+    const shape = new THREE.Shape(P.map(p => new THREE.Vector2(p.x, p.z)));
+    const cg = new THREE.ShapeGeometry(shape); const cm = new THREE.Mesh(cg, capMat); cm.rotation.x = Math.PI/2; g.add(cm);
+    walls.push({ P, wg, cm });
+  });
+  return { mesh, geo, group: g, walls, tex, mat, D };
+}
+function applyHeights(T){
+  const D = T.D, e = S.exag/1000, pos = T.geo.attributes.position;
+  for (let k=0;k<D.NX*D.NY;k++) pos.array[k*3+1] = D.hv[k]*e;
+  pos.needsUpdate = true; T.geo.computeVertexNormals(); T.geo.computeBoundingSphere();
+  const base = Math.min(0, D.stat.min*e) - D.span*0.05; T.base = base;
+  T.walls.forEach(w => {
+    const a = w.wg.attributes.position.array;
+    w.P.forEach((p,i) => { a[i*6]=p.x; a[i*6+1]=p.e*e; a[i*6+2]=p.z; a[i*6+3]=p.x; a[i*6+4]=base; a[i*6+5]=p.z; });
+    w.wg.attributes.position.needsUpdate = true; w.wg.computeVertexNormals(); w.cm.position.y = base;
+  });
+}
+
+/* ---------- marcadores ---------- */
+const hits = [];
+function buildMarkers(T){
+  markers.clear(); hits.length = 0;
+  if (!S.banks) return;
+  const D = T.D, slide = D.slide, nB = slide.banks.length;
+  const r = D.span * (slide.peru ? .0032 : .0085) * (nB > 100 ? .38 : nB > 40 ? .6 : nB > 22 ? .8 : 1);
+  const e = S.exag/1000;
+  const groups = new Map();
+  slide.banks.forEach(b => { const k = b.a.toFixed(3)+'|'+b.o.toFixed(3); (groups.get(k) || groups.set(k,[]).get(k)).push(b); });
+  groups.forEach(list => {
+    list.forEach((b,i) => {
+      let lon = b.o, lat = b.a;
+      const n = list.length;
+      const ang = i * 2.399963, rad = n > 1 ? r * 1.7 * Math.sqrt(i + .5) : 0;
+      const X = wx(D, px(lon,D.z)) + Math.cos(ang)*rad, Z = wz(D, py(lat,D.z)) + Math.sin(ang)*rad;
+      const px2 = D.pxc + X/D.k, py2 = D.pyc + Z/D.k;
+      const h = sample(D, px2, py2) * e;
+      const col = new THREE.Color(TCOL[b.t]);
+      const stem = r * 4.2;
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(r*.12, r*.12, stem, 6), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .6 }));
+      s.position.set(X, h + stem/2, Z); markers.add(s);
+      const head = b.t === 'II' ? new THREE.Mesh(new THREE.BoxGeometry(r*1.5, r*1.5, r*1.5), new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: .35, roughness: .4 }))
+                                 : new THREE.Mesh(new THREE.SphereGeometry(r*.95, 14, 10), new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: .35, roughness: .4 }));
+      head.position.set(X, h + stem + r*.6, Z); head.userData = { b, s0: 1 }; markers.add(head); hits.push(head);
+    });
+  });
+}
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(); let hover = null;
+canvas.addEventListener('pointermove', ev => {
+  mouse.x = ev.clientX/innerWidth*2-1; mouse.y = -(ev.clientY/innerHeight*2-1);
+  ray.setFromCamera(mouse, camera);
+  const h = ray.intersectObjects(hits, false)[0];
+  const tip = $('tip');
+  if (h) { const b = h.object.userData.b; tip.style.display = 'block'; tip.style.left = (ev.clientX+14)+'px'; tip.style.top = (ev.clientY+14)+'px';
+    tip.innerHTML = '<b>'+b.n.replace(/</g,'&lt;')+'</b><br><span style="color:'+TCOL[b.t]+'">'+TLAB[b.t]+'</span> · '+nice(b.d)+', '+nice(b.p); canvas.style.cursor = 'pointer'; }
+  else { tip.style.display = 'none'; canvas.style.cursor = 'grab'; }
+});
+
+/* ---------- panel derecho ---------- */
+function panel(slide, D){
+  $('rk').textContent = slide.peru ? 'República del' : 'Región'; $('rn').textContent = slide.name;
+  $('rt').textContent = slide.banks.length;
+  const cnt = t => slide.banks.filter(b => b.t === t).length;
+  $('cards').innerHTML = ['IA','IB','IC','II'].map(t => '<div class="card"><b style="color:'+TCOL[t]+'">'+cnt(t)+'</b><span><i class="dot '+(t==='II'?'sq':'')+'" style="background:'+TCOL[t]+'"></i>'+TLAB[t]+'</span></div>').join('');
+  const st = D.stat, nprov = slide.peru ? PROV.length : PROV.filter(p => p.d === slide.key).length;
+  const kmr = D.roads ? D.roads.length : 0;
+  $('rinfo').innerHTML = 'Provincias: <b style="color:#fff">'+nprov+'</b><br>Cota máxima: <b style="color:#fff">'+Math.round(st.max).toLocaleString('es-PE')+' m</b><br>Cota mínima (depresión): <b style="color:#fff">'+Math.round(st.min).toLocaleString('es-PE')+' m</b><br>Cota media: <b style="color:#fff">'+Math.round(st.mean).toLocaleString('es-PE')+' m</b>' + (slide.peru ? '' : '<br>Tramos de carretera nacional: <b style="color:#fff">'+kmr+'</b>');
+  const list = slide.banks.slice().sort((a,b) => a.t.localeCompare(b.t) || a.n.localeCompare(b.n));
+  $('blist').innerHTML = list.length > 220 ? '<div style="cursor:default;color:var(--mut)">Lista completa disponible al elegir una región más pequeña; pase el cursor sobre los puntos del mapa.</div>' : list.map(b => '<div data-n="'+encodeURIComponent(b.n)+'"><i class="dot '+(b.t==='II'?'sq':'')+'" style="background:'+TCOL[b.t]+'"></i>'+b.n.replace(/</g,'&lt;').slice(0,70)+' <span style="color:var(--mut)">· '+nice(b.d)+'</span></div>').join('');
+  $('lgT').textContent = S.mode === 'relieve' ? (S.contrast ? 'Relieve · contraste regional' : 'Elevación (m s. n. m.)') : 'Elevación (leyenda en modo Relieve)';
+  $('lgA').textContent = S.contrast ? Math.round(st.min)+' m' : '0 m'; $('lgB').textContent = S.contrast ? Math.round(st.max)+' m' : '5 600 m';
+}
+$('blist').addEventListener('click', ev => {
+  const d = ev.target.closest('div[data-n]'); if (!d) return; const n = decodeURIComponent(d.dataset.n);
+  const m = hits.find(h => h.userData.b.n === n); if (!m) return;
+  controls.target.lerp(m.position, 1); const dir = camera.position.clone().sub(controls.target).normalize(); camera.position.copy(controls.target.clone().add(dir.multiplyScalar(terrain.D.span*0.22)));
+  m.scale.setScalar(2.2); setTimeout(() => m.scale.setScalar(1), 1800);
+});
+
+/* ---------- navegación ---------- */
+let anim = null;
+function frame(D, immediate){
+  const span = D.span, tgt = new THREE.Vector3(0, (D.stat.max*S.exag/1000)*0.35, 0);
+  const dist = span * (D.slide.peru ? 1.32 : 1.18), el = D.slide.peru ? .85 : .74;
+  const goal = new THREE.Vector3(Math.sin(.35)*Math.cos(el)*dist*.6, Math.sin(el)*dist, Math.cos(.35)*Math.cos(el)*dist*1.0).add(tgt);
+  camera.near = Math.max(.2, span/2000); camera.far = span*20; camera.updateProjectionMatrix();
+  if (immediate) { camera.position.copy(goal); controls.target.copy(tgt); }
+  else anim = { t:0, from:camera.position.clone(), to:goal, tf:controls.target.clone(), tt:tgt };
+}
+async function go(i, immediate){
+  if (i < 0) i = END; if (i > END) i = 0;
+  S.idx = i; $('sel').value = Math.min(i, END-1);
+  if (i === END) { $('end').classList.add('on'); $('ttl').textContent = 'Finalización'; $('cnt').textContent = ''; return; }
+  $('end').classList.remove('on');
+  const slide = ALL[i]; $('ttl').textContent = slide.name; $('cnt').textContent = i + ' / ' + (END-1);
+  if (!S.manual) { S.exag = slide.peru ? 8 : 3; $('exag').value = S.exag; $('exv').textContent = S.exag.toFixed(1) + '×'; }
+  const D = await build(slide); if (!D) return;
+  if (terrain) { root.remove(terrain.group); terrain.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material.map) o.material.map.dispose(); }); }
+  terrain = makeTerrain(D); root.add(terrain.group); applyHeights(terrain); buildMarkers(terrain);
+  panel(slide, D); frame(D, immediate); $('load').classList.remove('on');
+}
+async function recolor(){ if (!terrain) return; const D = terrain.D; if (!S.roads || D.roads.length || D.slide.peru) {} else D.roads = await loadRoads(D.slide.key); const t = paintTexture(D); terrain.mat.map.dispose(); terrain.mat.map = t; terrain.mat.needsUpdate = true; }
+function reheight(){ if (!terrain) return; applyHeights(terrain); buildMarkers(terrain); }
+
+/* ---------- eventos ---------- */
+$('prev').onclick = () => go(S.idx-1); $('next').onclick = () => go(S.idx+1);
+$('sel').onchange = e => go(+e.target.value);
+$('seg').onclick = e => { const b = e.target.closest('button'); if (!b) return; S.mode = b.dataset.m; [...$('seg').children].forEach(c => c.classList.toggle('on', c===b)); recolor(); if (terrain) panel(terrain.D.slide, terrain.D); };
+$('exag').oninput = e => { S.manual = true; S.exag = +e.target.value; $('exv').textContent = S.exag.toFixed(1)+'×'; reheight(); };
+$('kRoads').onchange = e => { S.roads = e.target.checked; recolor(); };
+$('kProv').onchange = e => { S.prov = e.target.checked; recolor(); };
+$('kBanks').onchange = e => { S.banks = e.target.checked; buildMarkers(terrain); };
+$('kContrast').onchange = e => { S.contrast = e.target.checked; recolor(); if (terrain) panel(terrain.D.slide, terrain.D); };
+$('kRot').onchange = e => { controls.autoRotate = e.target.checked; controls.autoRotateSpeed = .9; };
+let timer = null;
+function setPlay(on){ S.play = on; $('play').textContent = on ? '■ Detener' : '▶ Presentación'; clearInterval(timer); if (on) { controls.autoRotate = true; $('kRot').checked = true; timer = setInterval(() => { if (S.idx >= END) { setPlay(false); return; } go(S.idx+1); }, 15000); } }
+$('play').onclick = () => setPlay(!S.play);
+$('fs').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+$('again').onclick = () => { setPlay(false); go(0); }; $('closeEnd').onclick = () => { $('end').classList.remove('on'); S.idx = END-1; };
+addEventListener('keydown', e => { if (e.target.tagName === 'SELECT') return; if (e.key === 'ArrowRight') go(S.idx+1); else if (e.key === 'ArrowLeft') go(S.idx-1); else if (e.key === ' ') { e.preventDefault(); setPlay(!S.play); } else if (['1','2','3'].includes(e.key)) $('seg').children[+e.key-1].click(); });
+
+/* ---------- bucle ---------- */
+function tick(){
+  requestAnimationFrame(tick);
+  if (anim) { anim.t = Math.min(1, anim.t + .025); const k = 1 - Math.pow(1-anim.t, 3); camera.position.lerpVectors(anim.from, anim.to, k); controls.target.lerpVectors(anim.tf, anim.tt, k); if (anim.t >= 1) anim = null; }
+  controls.update(); renderer.render(scene, camera);
+}
+tick();
+// suma de tramos de carretera para el cierre
+(async () => { let n = 0; for (const s of SLIDES) { const r = await loadRoads(s.key); n += r.length; } $('eR').textContent = n.toLocaleString('es-PE'); })();
+await go(0, true);
+window.__app = { go, S, renderer, scene, camera, controls, snap: () => { renderer.render(scene, camera); return canvas.toDataURL('image/jpeg', .9); } };
+</script>
+</body>
+</html>
