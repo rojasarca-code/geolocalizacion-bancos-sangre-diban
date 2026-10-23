@@ -22,7 +22,7 @@
   input[type=range]{width:100%}
   .btn{background:var(--acc);border:0;color:#fff;padding:9px 12px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px}
   .btn.g{background:#1d2b44;border:1px solid var(--line);font-weight:500}
-  #right{right:14px;top:14px;width:310px;max-height:calc(100vh - 100px);overflow:auto}
+  #right{right:14px;top:14px;width:310px;max-height:calc(100vh - 28px);overflow:auto}
   #right h2{margin:0 0 2px;font-size:22px;letter-spacing:-.01em}
   #right .kick{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
   .big{font-size:34px;font-weight:700;line-height:1}
@@ -34,7 +34,7 @@
   #blist{margin-top:8px;font-size:11.5px}
   #blist div{padding:3px 0;border-bottom:1px solid var(--line);cursor:pointer;line-height:1.3}
   #blist div:hover{color:#fff;background:rgba(255,255,255,.05)}
-  #bar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;padding:8px 12px}
+  #bar{position:fixed;left:calc(50% - 110px);bottom:16px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;padding:8px 12px}
   #bar .title{min-width:210px;text-align:center;font-weight:600;font-size:14px}
   #legend{left:14px;bottom:16px;width:300px;padding:10px 14px;font-size:11px}
   #ramp{height:12px;border-radius:6px;margin:6px 0 3px}
@@ -48,15 +48,16 @@
   #end .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:22px 0}
   #end .grid .card b{font-size:26px}
   #end p{color:var(--mut);font-size:13.5px;line-height:1.55;margin:8px 0}
-  .hint{position:fixed;right:20px;bottom:14px;font-size:11px;color:var(--mut);text-align:right;line-height:1.5;max-width:420px}
-  #pad{right:14px;bottom:70px;width:178px;padding:10px 12px;z-index:6}
+  .hint{position:fixed;left:50%;transform:translateX(-50%);top:12px;font-size:11px;color:var(--mut);text-align:center;line-height:1.5;max-width:520px;background:rgba(14,20,32,.6);padding:4px 10px;border-radius:8px}
+  #pad{right:338px;bottom:16px;width:178px;padding:10px 12px;z-index:6}
   #pad .pt{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin-bottom:7px}
   #pad .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
   #pad button{background:#0b111b;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 0;font-size:14px;cursor:pointer;touch-action:none;user-select:none}
   #pad button:hover{background:#1d2b44}#pad button:active{background:#2c4373}
   #pad .prow{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px}#pad .prow button{font-size:11.5px}
   #pad .mvb{width:100%;margin-top:6px;font-size:11px;padding:7px 4px}#pad .mvb.on{background:#2c4373;border-color:#4a6bb0}
-  @media (max-width:900px){#pad{bottom:76px;width:150px}#pad .pt{display:none}}
+  @media (max-width:1280px){#pad{bottom:76px}}
+  @media (max-width:900px){#pad{right:14px;bottom:76px;width:150px}#pad .pt{display:none}}
   @media (max-width:900px){#left{width:240px}#right{display:none}#legend{display:none}.hint{display:none}#bar .title{min-width:130px}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
