@@ -50,14 +50,14 @@
   #end p{color:var(--mut);font-size:13.5px;line-height:1.55;margin:8px 0}
   .hint{position:fixed;left:50%;transform:translateX(-50%);top:12px;font-size:11px;color:var(--mut);text-align:center;line-height:1.5;max-width:520px;background:rgba(14,20,32,.6);padding:4px 10px;border-radius:8px}
   #pad{right:338px;bottom:16px;width:178px;padding:10px 12px;z-index:6}
-  #pad .pt{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin-bottom:7px}
+  #pad .pt{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin:-4px -6px 7px;padding:5px 6px;cursor:grab;touch-action:none;user-select:none;border-bottom:1px solid var(--line);border-radius:8px 8px 0 0}#pad .pt:hover{color:#fff;background:rgba(255,255,255,.06)}#pad.drag{box-shadow:0 10px 30px rgba(0,0,0,.55);opacity:.96}
   #pad .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
   #pad button{background:#0b111b;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 0;font-size:14px;cursor:pointer;touch-action:none;user-select:none}
   #pad button:hover{background:#1d2b44}#pad button:active{background:#2c4373}
   #pad .prow{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px}#pad .prow button{font-size:11.5px}
   #pad .mvb{width:100%;margin-top:6px;font-size:11px;padding:7px 4px}#pad .mvb.on{background:#2c4373;border-color:#4a6bb0}
   @media (max-width:1280px){#pad{bottom:76px}}
-  @media (max-width:900px){#pad{right:14px;bottom:76px;width:150px}#pad .pt{display:none}}
+  @media (max-width:900px){#pad{right:14px;bottom:76px;width:150px}#pad .pt{font-size:9px}}
   @media (max-width:900px){#left{width:240px}#right{display:none}#legend{display:none}.hint{display:none}#bar .title{min-width:130px}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
@@ -115,7 +115,7 @@
   <span id="cnt" style="color:var(--mut);font-size:12px"></span>
 </div>
 <div id="pad" class="panel">
-  <div class="pt">Mover y girar la vista</div>
+  <div class="pt" id="padH" title="Arrastra para mover este panel donde quieras (doble clic: posición inicial)">⠿ Mover y girar la vista</div>
   <div class="pgrid">
     <button data-a="rotL" title="Girar a la izquierda (Q)">⟲</button><button data-a="up" title="Mover hacia arriba (W)">▲</button><button data-a="rotR" title="Girar a la derecha (E)">⟳</button>
     <button data-a="left" title="Mover a la izquierda (A)">◀</button><button data-a="home" title="Restablecer vista">⌂</button><button data-a="right" title="Mover a la derecha (D)">▶</button>
@@ -553,6 +553,18 @@ function nav(a){
   else if (a === 'home') { if (terrain) frame(terrain.D, false); return; }
   off.setFromSpherical(sph); camera.position.copy(controls.target).add(off);
 }
+/* panel de desplazamiento movible libremente (se recuerda la posición) */
+(function(){
+  const pad = $('pad'), head = $('padH'); let drag = null;
+  function place(l, t){ const w = pad.offsetWidth, h = pad.offsetHeight; l = Math.max(0, Math.min(innerWidth - w, l)); t = Math.max(0, Math.min(innerHeight - h, t)); pad.style.left = l + 'px'; pad.style.top = t + 'px'; pad.style.right = 'auto'; pad.style.bottom = 'auto'; }
+  head.addEventListener('pointerdown', e => { const r = pad.getBoundingClientRect(); drag = { dx: e.clientX - r.left, dy: e.clientY - r.top }; head.setPointerCapture(e.pointerId); pad.classList.add('drag'); e.preventDefault(); });
+  head.addEventListener('pointermove', e => { if (drag) place(e.clientX - drag.dx, e.clientY - drag.dy); });
+  const end = () => { if (!drag) return; drag = null; pad.classList.remove('drag'); try { localStorage.setItem('padPos', JSON.stringify([pad.offsetLeft, pad.offsetTop])); } catch (_) {} };
+  head.addEventListener('pointerup', end); head.addEventListener('pointercancel', end);
+  head.addEventListener('dblclick', () => { pad.style.left = pad.style.top = pad.style.right = pad.style.bottom = ''; try { localStorage.removeItem('padPos'); } catch (_) {} });
+  try { const p = JSON.parse(localStorage.getItem('padPos') || 'null'); if (p) place(p[0], p[1]); } catch (_) {}
+  addEventListener('resize', () => { if (pad.style.left) place(pad.offsetLeft, pad.offsetTop); });
+})();
 const holdTimers = {};
 document.querySelectorAll('#pad button[data-a]').forEach(b => {
   const a = b.dataset.a;
