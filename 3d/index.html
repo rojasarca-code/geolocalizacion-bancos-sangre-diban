@@ -96,7 +96,7 @@
   <div id="lgT" style="font-weight:600">Elevación</div>
   <div id="ramp"></div>
   <div style="display:flex;justify-content:space-between;color:var(--mut)"><span id="lgA">0 m</span><span id="lgB">5 500 m</span></div>
-  <div style="margin-top:8px;color:var(--mut)">Red vial: capa de carreteras sobre el relieve · líneas blancas discontinuas: límites provinciales</div>
+  <div style="margin-top:8px;color:var(--mut)"><span class="dot" style="background:#ff3d1f"></span>Carreteras principales &nbsp;<span class="dot" style="background:#ffb020"></span>Vías secundarias<br>Líneas blancas discontinuas: límites provinciales</div>
 </div>
 
 <div id="bar" class="panel">
@@ -243,6 +243,36 @@ function sample(D, ppx, ppy){
 const wx = (D,p) => (p - D.pxc) * D.k, wz = (D,p) => (p - D.pyc) * D.k;
 function heightAt(D, lon, lat){ return sample(D, px(lon,D.z), py(lat,D.z)); }
 
+/* ---------- carreteras resaltadas: se extraen las vías de la capa de transporte y se recolorean/engrosan ---------- */
+function roadLayers(D){
+  if (D.rl) return D.rl;
+  const W = D.W, H = D.H;
+  const sc = document.createElement('canvas'); sc.width = W; sc.height = H; const sx = sc.getContext('2d', { willReadFrequently: true });
+  sx.drawImage(D.transport, 0, 0);
+  const src = sx.getImageData(0, 0, W, H).data;
+  const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+  const major = mk(), minor = mk(), mj = major.getContext('2d'), mn = minor.getContext('2d');
+  const a = mj.createImageData(W, H), b = mn.createImageData(W, H);
+  for (let i = 0; i < W * H; i++) {
+    const al = src[i*4+3]; if (al < 70) continue;
+    const r = src[i*4], g = src[i*4+1], bl = src[i*4+2], sat = r - bl;
+    if (sat < 50) continue;
+    if (sat >= 105 && g < 155) { a.data[i*4] = 255; a.data[i*4+1] = 255; a.data[i*4+2] = 255; a.data[i*4+3] = 255; }
+    else { b.data[i*4] = 255; b.data[i*4+1] = 255; b.data[i*4+2] = 255; b.data[i*4+3] = 255; }
+  }
+  mj.putImageData(a, 0, 0); mn.putImageData(b, 0, 0);
+  const o = Math.max(1, Math.round(W / 1100));
+  const tint = (mask, color) => { const c = mk(), g = c.getContext('2d'); g.drawImage(mask, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = color; g.fillRect(0, 0, W, H); return c; };
+  const thick = (canvas, r, alpha) => { const c = mk(), g = c.getContext('2d'); g.globalAlpha = alpha; for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) if (dx*dx + dy*dy <= r*r + 1) g.drawImage(canvas, dx, dy); return c; };
+  const coreMinor = thick(tint(minor, '#ffb020'), o, 1);
+  const coreMajor = thick(tint(major, '#ff3d1f'), o + 1, 1);
+  const casing = mk(), cg = casing.getContext('2d');
+  cg.drawImage(thick(tint(minor, '#0a0a0a'), o + 1, .8), 0, 0); cg.drawImage(thick(tint(major, '#0a0a0a'), o + 3, .85), 0, 0);
+  const core = mk(), kg = core.getContext('2d'); kg.drawImage(coreMinor, 0, 0); kg.drawImage(coreMajor, 0, 0);
+  D.rl = { casing, core };
+  return D.rl;
+}
+
 /* ---------- textura ---------- */
 function paintTexture(D){
   const { W, H, slide } = D, z = D.z;
@@ -266,6 +296,7 @@ function paintTexture(D){
     PROV.filter(p => p.d === slide.key).forEach(p => p.c.forEach(r => { path(r); x.stroke(); }));
     x.setLineDash([]);
   }
+  if (S.roads) { const rl = roadLayers(D); x.drawImage(rl.casing, 0, 0); x.drawImage(rl.core, 0, 0); }
   if (S.roads && !slide.peru && D.roads.length) {
     x.lineCap = 'round'; x.lineJoin = 'round';
     D.roads.forEach(([cl,pts]) => { path(pts); x.strokeStyle = 'rgba(20,12,6,.8)'; x.lineWidth = lw*(cl?2.6:3.6); x.stroke(); });
