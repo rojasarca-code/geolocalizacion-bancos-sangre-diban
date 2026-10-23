@@ -48,7 +48,15 @@
   #end .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:22px 0}
   #end .grid .card b{font-size:26px}
   #end p{color:var(--mut);font-size:13.5px;line-height:1.55;margin:8px 0}
-  .hint{position:fixed;right:20px;bottom:20px;font-size:11px;color:var(--mut);text-align:right;line-height:1.5}
+  .hint{position:fixed;right:20px;bottom:14px;font-size:11px;color:var(--mut);text-align:right;line-height:1.5;max-width:420px}
+  #pad{right:14px;bottom:70px;width:178px;padding:10px 12px;z-index:6}
+  #pad .pt{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin-bottom:7px}
+  #pad .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  #pad button{background:#0b111b;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 0;font-size:14px;cursor:pointer;touch-action:none;user-select:none}
+  #pad button:hover{background:#1d2b44}#pad button:active{background:#2c4373}
+  #pad .prow{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px}#pad .prow button{font-size:11.5px}
+  #pad .mvb{width:100%;margin-top:6px;font-size:11px;padding:7px 4px}#pad .mvb.on{background:#2c4373;border-color:#4a6bb0}
+  @media (max-width:900px){#pad{bottom:76px;width:150px}#pad .pt{display:none}}
   @media (max-width:900px){#left{width:240px}#right{display:none}#legend{display:none}.hint{display:none}#bar .title{min-width:130px}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
@@ -105,7 +113,17 @@
   <button class="btn g" id="next">▶</button>
   <span id="cnt" style="color:var(--mut);font-size:12px"></span>
 </div>
-<div class="hint">Arrastrar: girar · Rueda: acercar · Clic derecho: mover<br>← → cambiar región · Espacio: presentación · 1 2 3: superficie</div>
+<div id="pad" class="panel">
+  <div class="pt">Mover y girar la vista</div>
+  <div class="pgrid">
+    <button data-a="rotL" title="Girar a la izquierda (Q)">⟲</button><button data-a="up" title="Mover hacia arriba (W)">▲</button><button data-a="rotR" title="Girar a la derecha (E)">⟳</button>
+    <button data-a="left" title="Mover a la izquierda (A)">◀</button><button data-a="home" title="Restablecer vista">⌂</button><button data-a="right" title="Mover a la derecha (D)">▶</button>
+    <button data-a="tiltD" title="Inclinar: ver más desde arriba (R)">⤒</button><button data-a="down" title="Mover hacia abajo (S)">▼</button><button data-a="tiltU" title="Inclinar: ver más de frente (F)">⤓</button>
+  </div>
+  <div class="prow"><button data-a="zin" title="Acercar (+)">＋ Acercar</button><button data-a="zout" title="Alejar (−)">－ Alejar</button></div>
+  <button id="mv" class="mvb" title="Con esta opción el arrastre con el ratón desplaza el mapa en lugar de girarlo">✥ Arrastrar para mover: NO</button>
+</div>
+<div class="hint">Arrastrar: girar · Mayús + arrastrar o clic derecho: mover · Rueda: acercar<br>W A S D mover · Q E girar · R F inclinar · ← → cambiar región · Espacio: presentación · 1 2 3: superficie</div>
 <div id="tip"></div>
 <div id="load">Cargando relieve y carreteras…</div>
 
@@ -144,6 +162,9 @@ scene.fog = null;
 const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 20000);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true; controls.dampingFactor = .08; controls.maxPolarAngle = Math.PI * .495;
+controls.screenSpacePanning = true; controls.panSpeed = 1.3; controls.rotateSpeed = .9; controls.zoomSpeed = 1.1;
+controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
 scene.add(new THREE.HemisphereLight(0xdfe9ff, 0x2a3140, 1.15));
 const sun = new THREE.DirectionalLight(0xfff3dd, 2.1); sun.position.set(-1, 1.35, -.6); scene.add(sun);
 const fill = new THREE.DirectionalLight(0x9db8ff, .45); fill.position.set(1, .6, 1); scene.add(fill);
@@ -511,6 +532,40 @@ function setPlay(on){ S.play = on; $('play').textContent = on ? '■ Detener' : 
 $('play').onclick = () => setPlay(!S.play);
 $('fs').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
 $('again').onclick = () => { setPlay(false); go(0); }; $('closeEnd').onclick = () => { $('end').classList.remove('on'); S.idx = END-1; };
+/* ---------- mover / girar / inclinar / acercar ---------- */
+const sph = new THREE.Spherical(), off = new THREE.Vector3(), rt = new THREE.Vector3(), upv = new THREE.Vector3();
+function nav(a){
+  anim = null;
+  off.copy(camera.position).sub(controls.target); sph.setFromVector3(off);
+  const step = sph.radius * .035;
+  if (a === 'up' || a === 'down' || a === 'left' || a === 'right') {
+    camera.updateMatrixWorld(); rt.setFromMatrixColumn(camera.matrix, 0); rt.y = 0; rt.normalize();
+    upv.copy(controls.target).sub(camera.position); upv.y = 0; upv.normalize();   // "arriba" = avanzar sobre el plano del mapa
+    const d = new THREE.Vector3();
+    if (a === 'left') d.addScaledVector(rt, -step); if (a === 'right') d.addScaledVector(rt, step);
+    if (a === 'up') d.addScaledVector(upv, step); if (a === 'down') d.addScaledVector(upv, -step);
+    camera.position.add(d); controls.target.add(d); return;
+  }
+  if (a === 'rotL') sph.theta -= .05; else if (a === 'rotR') sph.theta += .05;
+  else if (a === 'tiltD') sph.phi = Math.max(.08, sph.phi - .035); else if (a === 'tiltU') sph.phi = Math.min(Math.PI * .495, sph.phi + .035);
+  else if (a === 'zin') sph.radius = Math.max(controls.minDistance || .5, sph.radius * .96); else if (a === 'zout') sph.radius *= 1.04;
+  else if (a === 'home') { if (terrain) frame(terrain.D, false); return; }
+  off.setFromSpherical(sph); camera.position.copy(controls.target).add(off);
+}
+const holdTimers = {};
+document.querySelectorAll('#pad button[data-a]').forEach(b => {
+  const a = b.dataset.a;
+  const stop = () => { clearInterval(holdTimers[a]); holdTimers[a] = null; };
+  b.addEventListener('pointerdown', e => { e.preventDefault(); nav(a); if (a === 'home') return; stop(); holdTimers[a] = setInterval(() => nav(a), 40); });
+  ['pointerup','pointerleave','pointercancel'].forEach(ev => b.addEventListener(ev, stop));
+});
+$('mv').onclick = () => {
+  const on = !$('mv').classList.contains('on'); $('mv').classList.toggle('on', on);
+  $('mv').textContent = '✥ Arrastrar para mover: ' + (on ? 'SÍ' : 'NO');
+  controls.mouseButtons.LEFT = on ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE; controls.touches.ONE = on ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE;
+};
+const keyHold = {};
+addEventListener('keydown', e => { if (e.target.tagName === 'SELECT') return; const m = { w:'up', s:'down', a:'left', d:'right', q:'rotL', e:'rotR', r:'tiltD', f:'tiltU', '+':'zin', '=':'zin', '-':'zout', '_':'zout' }[e.key.toLowerCase()]; if (m) { nav(m); } });
 addEventListener('keydown', e => { if (e.target.tagName === 'SELECT') return; if (e.key === 'ArrowRight') go(S.idx+1); else if (e.key === 'ArrowLeft') go(S.idx-1); else if (e.key === ' ') { e.preventDefault(); setPlay(!S.play); } else if (['1','2','3'].includes(e.key)) $('seg').children[+e.key-1].click(); });
 
 /* ---------- bucle ---------- */
